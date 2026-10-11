@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GTK 4 interface — Cwhip</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html">cwhip</a>
+  <nav class="main-nav">
+    <a href="index.html">Home</a>
+    <a href="docs.html">Documentation</a>
+    <a href="about-site.html">About this site</a>
+    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
+  </nav>
+</header>
+<main>
+<h1 id="gtk-4-interface">GTK 4 interface</h1>
+<p>The optional <code>gtk</code> package (<code>0.1.0</code>, <code>import gtk</code>, namespace <code>Gtk</code>) provides a<br>
+compact GTK-aligned interface: <code>Application</code>, <code>Widget</code>, <code>Window</code>, <code>Box</code>, <code>Label</code>,<br>
+<code>Button</code>, <code>Entry</code>, <code>CheckButton</code>, <code>ScrolledWindow</code>, <code>Notebook</code>, <code>MenuBar</code>,<br>
+<code>FileDialog</code>, <code>Paned</code>, <code>Tree</code>, <code>DirectoryScan</code>, and <code>SignalConnection</code>, plus the optional <code>sourceview</code> package.<br>
+It is not a complete GTK binding or a generic GUI framework.</p>
+<h2 id="build-and-package-linkage">Build and package linkage</h2>
+<p>Fresh configurations enable <code>CWHIP_GTK</code> when GTK 4.10 or newer development files and<br>
+<code>pkg-config</code> are available, and enable <code>CWHIP_GTK_SOURCEVIEW</code> when GtkSourceView 5<br>
+is also available. Explicit <code>ON</code> options require the corresponding dependencies.<br>
+With <code>BUILD_TESTING=ON</code>, headless tests default to enabled when Xvfb and<br>
+<code>dbus-daemon</code> are found; <code>CWHIP_GTK_TESTS=ON</code> requires them explicitly.<br>
+With <code>CWHIP_GTK=OFF</code> and <code>CWHIP_GTK_SOURCEVIEW=OFF</code>, the GTK package is absent from staged/installed<br>
+standard modules. With it on, <code>lib/libcwhip_gtk.a</code> resides inside<br>
+<code>share/cwhip/modules/gtk/0.1.0/</code>, beside the source and manifest.</p>
+<p>Package <code>[link]</code> metadata links importing applications with <code>cwhip_gtk</code>, <code>gtk-4</code>,<br>
+<code>gio-2.0</code>, <code>gobject-2.0</code>, <code>glib-2.0</code>, <code>pango-1.0</code>, and <code>pangocairo-1.0</code>. The compiler and non-import applications<br>
+remain unlinked to GTK. Compile-only objects retain package link sidecars.<br>
+Installed consumers use the normal <code>cwhip-pkg init</code> / <code>cwhip-pkg install</code> lock flow.<br>
+GTK runtime libraries and a usable display are external requirements; they<br>
+are not bundled. The native platform remains POSIX.</p>
+<h2 id="application-and-activation">Application and activation</h2>
+<p>Construct exactly one <code>Application(String id)</code> on the registered Cwhip thread<br>
+that will own GTK. The ID must be a valid GApplication ID, such as<br>
+<code>&quot;org.example.Editor&quot;</code>. <code>onActivate(callback&lt;void()&gt; action)</code> returns a connection;<br>
+install activation handlers <strong>before</strong> <code>run()</code>. Create windows and widgets<br>
+during local activation or afterward on the same GUI thread, not before <code>run()</code>.<br>
+Each <code>Window</code> automatically associates with this <code>GtkApplication</code>.</p>
+<p><code>run()</code> calls the real <code>g_application_run()</code>: GTK handles desktop activation,<br>
+application registration, and normal single-instance behavior on the session<br>
+bus. A second process with the same ID forwards activation to the primary<br>
+process; its local activation handlers do not run. Activation can occur more<br>
+than once in the primary process, so handlers should present existing windows<br>
+when appropriate. No command-line/open-file API is provided yet; the GTK run<br>
+call does not consume Cwhip&#x27;s program arguments.</p>
+<p>Closing the last application window normally ends the run. <code>quit()</code> requests<br>
+exit and requires an active run; it does not pretend that closing was approved.<br>
+<code>run()</code> is single-use and <strong>terminal</strong>: on return it performs <code>shutdown()</code>.<br>
+<code>shutdown()</code> is GUI-only, terminal and idempotent, and is safe inside a handler<br>
+or before running. It cancels pending posts, disconnects every signal, disposes<br>
+all widgets (including detached widgets), and releases the native application.<br>
+Native application release is kept safe while a run or emission is unwinding.<br>
+Outstanding <code>Config.save</code> operations are drained before shutdown; their<br>
+completion callbacks are suppressed during teardown and failures go to stderr.<br>
+Reinitialization and nested runs are rejected.</p>
+<p><code>Window.close()</code> sends GTK&#x27;s close request and requires a realized/presented<br>
+window; use <code>dispose()</code> to tear down a window that has not been presented.<br>
+Calling close before presentation is rejected rather than silently doing nothing.</p>
+<p><code>String id()</code> returns a managed copy of the application ID while live.<br>
+<code>int post(callback&lt;void()&gt; action)</code> is the only worker-callable GUI operation;<br>
+it queues one invocation on the GUI thread and returns a positive, process-unique<br>
+token. <code>bool cancel(int token)</code> is GUI-only: true means pending work was removed,<br>
+false means it was already cancelled/running/completed or was never pending.<br>
+Tokens are never reused. Posts before initialization or after shutdown abort<br>
+with an explicit diagnostic. Coordinate worker completion before requesting<br>
+exit if workers might still submit work. Posts do not independently hold a GUI<br>
+application open: keep an application window alive until needed work finishes.</p>
+<p>For foundation compatibility, <code>Application()</code> is a stateless reference to this<br>
+same process-wide lifecycle (useful for <code>post</code>, <code>cancel</code>, <code>quit</code>, and <code>shutdown</code><br>
+inside handlers). It creates no second application. Legacy<br>
+<code>Application().initialize()</code> initializes a real GtkApplication with ID<br>
+<code>org.cwhip.Scheduler</code> and an explicit hold until <code>quit</code>/<code>shutdown</code>, so<br>
+scheduler-only foundation programs still work. Prefer the ID constructor for<br>
+new GUI programs. The old custom context-iteration loop is gone; repeated<br>
+<code>run()</code> and connecting/posting after a run intentionally no longer work.</p>
+<h2 id="widgets-and-properties">Widgets and properties</h2>
+<p><code>Widget</code> is a protected construction base, not a raw-handle wrapper users<br>
+instantiate directly. Every concrete widget inherits:</p>
+<pre><code>
+void dispose()
+bool disposed()
+void setVisible(bool value)
+void setSensitive(bool value)
+void setHExpand(bool value)
+void setVExpand(bool value)
+</code></pre>
+<p>The first-release additions are:</p>
+<table>
+<tr><th>Class</th><th>Constructor and operations</th></tr>
+<tr><td><code>Window</code></td><td><code>Window(String title)</code>, <code>setTitle(String)</code>, <code>String title()</code>, <code>setDefaultSize(int width, int height)</code>, <code>int defaultWidth()</code>, <code>int defaultHeight()</code>, <code>setTransientFor(Window parent)</code>, <code>setChild(Widget)</code>, <code>remove(Widget)</code>, <code>present()</code>, <code>close()</code>, <code>onCloseRequest(callback&lt;bool()&gt;)</code></td></tr>
+<tr><td><code>TransientWindow</code></td><td><code>TransientWindow(String title)</code>, <code>setTitle(String)</code>, <code>String title()</code>, <code>setDefaultSize(int width, int height)</code>, <code>int defaultWidth()</code>, <code>int defaultHeight()</code>, <code>setTransientFor(Window parent)</code>, <code>setChild(Widget)</code>, <code>remove(Widget)</code>, <code>present()</code>, <code>close()</code>, <code>onCloseRequest(callback&lt;bool()&gt;)</code></td></tr>
+<tr><td><code>Box</code></td><td><code>Box(int orientation, int spacing)</code>, <code>setLayout(int orientation, int spacing)</code>, <code>append(Widget)</code>, <code>remove(Widget)</code></td></tr>
+<tr><td><code>Label</code></td><td><code>Label(String text)</code>, <code>setText(String)</code>, <code>String text()</code></td></tr>
+<tr><td><code>Button</code></td><td><code>Button(String label)</code>, <code>setLabel(String)</code>, <code>String label()</code>, <code>onClicked(callback&lt;void()&gt;)</code></td></tr>
+<tr><td><code>Entry</code></td><td><code>Entry(String text)</code>, <code>setText(String)</code>, <code>String text()</code>, <code>focus()</code>, <code>onChanged(callback&lt;void(String)&gt;)</code></td></tr>
+<tr><td><code>CheckButton</code></td><td><code>CheckButton(String label)</code>, <code>setLabel(String)</code>, <code>String label()</code>, <code>setActive(bool)</code>, <code>bool active()</code>, <code>onToggled(callback&lt;void(bool)&gt;)</code></td></tr>
+<tr><td><code>ScrolledWindow</code></td><td><code>ScrolledWindow()</code>, <code>setChild(Widget)</code>, <code>remove(Widget)</code></td></tr>
+<tr><td><code>Notebook</code></td><td><code>Notebook()</code>, <code>appendPage(Widget, String)</code>, <code>int currentPage()</code>, <code>setCurrentPage(int)</code>, <code>int pageCount()</code>, <code>setPageTitle(int, String)</code>, <code>remove(Widget)</code>, <code>onPageChanged(callback&lt;void()&gt;)</code></td></tr>
+<tr><td><code>Paned</code></td><td><code>Paned()</code>, <code>append(Widget)</code>, <code>setPosition(int)</code>, <code>int position()</code></td></tr>
+<tr><td><code>MenuBar</code></td><td><code>MenuBar()</code>, <code>int addMenu(String)</code>, <code>int addItem(int menu, String label, callback&lt;void()&gt;)</code>, <code>setItemEnabled(int item, bool)</code>, <code>activateItem(int item)</code></td></tr>
+</table>
+<p>Methods without a listed result return <code>void</code>, except signal registration,<br>
+which returns <code>SignalConnection</code>. Orientation is <code>Gtk.Box.HORIZONTAL</code> (<code>0</code>) or<br>
+<code>Gtk.Box.VERTICAL</code> (<code>1</code>); spacing is nonnegative and must fit GTK&#x27;s integer range.<br>
+Default window dimensions must be positive and fit that range.<br>
+<code>defaultWidth</code>/<code>defaultHeight</code> return GTK&#x27;s current default size, which GTK 4<br>
+updates when the user resizes an unmaximized window (<code>0</code> means unset); use them<br>
+to persist window size.<br>
+Text accepts managed UTF-8 strings, including empty strings, but not null,<br>
+embedded NULs, or invalid UTF-8. Getters return managed copies.</p>
+<p><code>Window</code>, <code>TransientWindow</code> and <code>ScrolledWindow</code> have one child; remove it before<br>
+attaching a replacement. <code>Window</code> is associated with the <code>Gtk.Application</code>;<br>
+<code>TransientWindow</code> is a standalone top-level. <code>setTransientFor</code> establishes the<br>
+native transient relationship, with GTK destroy-with-parent enabled. Destroying<br>
+the parent destroys the transient and releases its registrations; hiding it<br>
+does not. <code>Box</code> accepts multiple children. A child must be live and unparented;<br>
+windows cannot be children. Self-parenting, cycles, already-parented children,<br>
+occupied single-child containers, and removing from the wrong parent are errors.<br>
+GTK may internally insert a viewport in a scrolled window; the Cwhip ownership<br>
+relationship still refers to the child supplied by the caller.</p>
+<p>Expansion uses GTK&#x27;s actual <code>hexpand</code>/<code>vexpand</code> layout properties. For an editor,<br>
+expand the notebook, scrolled window and source widget vertically and horizontally<br>
+so they receive the window&#x27;s available viewport, rather than only one line&#x27;s<br>
+natural height. <code>focus()</code> requests keyboard focus; the target must be in a<br>
+presented window to receive it.</p>
+<h2 id="menus-and-asynchronous-file-dialogs">Menus and asynchronous file dialogs</h2>
+<p><code>MenuBar</code> is a real <code>GtkPopoverMenuBar</code> backed by <code>GMenu</code> and <code>GSimpleAction</code>.<br>
+<code>addMenu(label)</code> returns a zero-based submenu index. <code>addItem(menu, label, action)</code><br>
+returns a positive, unique item token scoped to that menu bar. Actions retain<br>
+their typed callback receivers until menu disposal or application shutdown.<br>
+<code>setItemEnabled</code> updates the actual GTK action state. <code>activateItem</code> invokes<br>
+that same action, including GTK&#x27;s disabled-action check; disabled items do not<br>
+invoke callbacks. An action may dispose its own menu/window or shut down.</p>
+<pre><code>
+Gtk.FileDialog(Window parent, bool save, String initialPath,
+               callback&lt;void(String)&gt; result)
+void cancel()
+bool pending()
+</code></pre>
+<p>Construction shows a modal, parented <code>GtkFileDialog</code> asynchronously:<br>
+<code>save=false</code> opens an existing file; <code>save=true</code> chooses a save destination.<br>
+An empty initial path uses GTK&#x27;s default location. A directory selects the<br>
+starting folder; a filename selects the open file or initializes the save<br>
+folder/name. Local selections return filesystem paths. Nonlocal selections<br>
+return their URI, allowing applications to explicitly report unsupported<br>
+locations rather than silently treating acceptance as cancellation.</p>
+<p>User acceptance invokes the rooted typed callback once with a copied managed<br>
+path or URI. User cancellation invokes it once with <code>&quot;&quot;</code>. Save choosers<br>
+use GTK 4&#x27;s built-in asynchronous overwrite confirmation (including native<br>
+platform/portal equivalents). A destination is delivered only after replacement<br>
+has been accepted. Declining replacement leaves the chooser open, allowing<br>
+another name or cancellation; the binding does not add a second confirmation.</p>
+<p><code>cancel()</code> is idempotent programmatic cancellation and <strong>does not invoke</strong> the<br>
+result callback. Parent destruction/disposal and application shutdown likewise<br>
+cancel pending choosers and release their callback roots without invocation.<br>
+<code>pending()</code> becomes false before the result handler runs and remains usable<br>
+after cancellation or shutdown. Dropping a dialog variable does not cancel it.<br>
+Callbacks may collect, retain their result, open another chooser, dispose the<br>
+parent, or shut down. GTK&#x27;s asynchronous request completes before the Cwhip<br>
+result handler runs, using a one-shot GUI idle dispatch; no nested main loop<br>
+or blocking wait is used.</p>
+<pre><code>
+Gtk.FileDialog(Window parent, String initialPath, callback&lt;void(list)&gt; results)
+</code></pre>
+<p>This open-only constructor enables multiple selection. Acceptance invokes<br>
+<code>results</code> once with a list of every selected path or URI (in chooser order);<br>
+cancellation invokes it once with an empty list. A file <code>initialPath</code> starts in<br>
+that file&#x27;s folder. Cancellation, disposal and shutdown rules are the same as<br>
+for the single-result constructor.</p>
+<pre><code>
+Gtk.AlertDialog().show(Window parent, String message, String detail)
+</code></pre>
+<p><code>show</code> presents a modal <code>GtkAlertDialog</code>, transient for <code>parent</code>, with a primary<br>
+message, secondary detail text and a single Close button. It returns<br>
+immediately and needs no callback; the binding keeps no reference to the alert.</p>
+<p>The folder-selection overload is:</p>
+<pre><code>
+Gtk.FileDialog(Window parent, String initialPath, callback&lt;void(String)&gt; folder)
+</code></pre>
+<p>It uses <code>gtk_file_dialog_select_folder</code>, with the same parent,<br>
+asynchronous delivery, accept/cancel, URI and lifetime contracts as the existing<br>
+file constructors. The overload preserves existing open/save/multiple APIs.<br>
+All constructors use cancellable GTK asynchronous requests. Programmatic<br>
+cancellation unlinks the pending token and releases the callback root immediately;<br>
+native request storage remains alive until GTK delivers its completion. A late<br>
+completion after cancellation, parent teardown or shutdown never invokes Cwhip<br>
+code. Folder selection is not treated as an open-file request.</p>
+<h2 id="trees-and-asynchronous-directory-enumeration">Trees and asynchronous directory enumeration</h2>
+<p><code>Paned</code> is a horizontal, draggable two-child splitter. <code>append</code> attaches the<br>
+start child first, then the end child. A third child is an error.<br>
+<code>setPosition</code> accepts a nonnegative GTK integer pixel position, and <code>position()</code><br>
+returns the current divider position. The start side<br>
+keeps its requested width on window resize; the end side grows.</p>
+<pre><code>
+Gtk.Tree(callback&lt;void(int)&gt; request, callback&lt;void(int)&gt; activate)
+void add(int parent, int id, String label, String icon, bool expandable,
+         String value, int data)
+void clear(int parent)
+void setExpanded(int id, bool expanded)
+String value(int id)
+int data(int id)
+int findValue(String value)
+int childCount(int parent)
+bool expanded(int id)
+</code></pre>
+<p><code>Tree</code> is a virtualized <code>GtkListView</code>/<code>GtkTreeListModel</code> with <code>GtkTreeExpander</code><br>
+rows and symbolic icon names. IDs must be positive and unique among live rows;<br>
+parent <code>0</code> denotes its roots. Values and integer data are generic, native-owned<br>
+row metadata, copied from the caller, not filesystem policy. <code>request(id)</code><br>
+runs when an expandable row expands (possibly again on rebinding);<br>
+applications should guard already-started loads. Collapsed rows do not request<br>
+population merely to render their expansion arrow. <code>activate(id)</code> runs for<br>
+leaves on double-click/Enter; directory activation toggles expansion.<br>
+<code>clear(parent)</code> removes its descendants, invalidating their IDs.<br>
+<code>setExpanded</code> requires a visible, expandable row; expand its ancestors first.<br>
+<code>expanded(id)</code> reports whether a live row is currently expanded (false<br>
+when it is not visible). <code>findValue</code> returns the smallest matching live ID or <code>0</code>; <code>childCount</code> counts<br>
+immediate children, including any loading/error placeholders. All other row<br>
+methods require a live ID. Roots/callbacks are released on widget disposal and<br>
+shutdown, including disposal from within a callback.</p>
+<pre><code>
+Gtk.DirectoryScan(Gtk.Tree owner, String path, bool hidden,
+                  callback&lt;void(int, String)&gt; result)
+Gtk.DirectoryScan(Gtk.Tree owner, String path, bool hidden, String root,
+                  String excludes, callback&lt;void(int, String)&gt; result)
+void cancel()
+void append(Gtk.Tree owner, int parent, int firstId, int count, String icons)
+</code></pre>
+<p>Enumeration and sorting run on a native worker without managed-runtime or GTK<br>
+access. On the GUI owner thread, <code>result(count, &quot;&quot;)</code> delivers a batch of up to<br>
+64 entries, at 5ms intervals. During that callback, <code>append</code> copies the current<br>
+batch into its owning Tree, assigning consecutive IDs starting at <code>firstId</code>.<br>
+The application chooses the parent, IDs and icons, without allocating a<br>
+managed object/path for every file. Ignoring a batch skips those rows.<br>
+<code>append</code> is valid only for that active batch, with a positive count no larger<br>
+than the delivered count; any remaining entries in that batch are skipped.</p>
+<p>Rows have local UTF-8 paths as their <code>value</code> and kind as their integer <code>data</code>:<br>
+<code>0</code> (regular file), <code>1</code> (directory), <code>2</code> (symlink), or <code>3</code> (other).<br>
+Directories are expandable; other kinds are leaves. <code>icons</code> is a newline-separated<br>
+set of <code>key=icon-name</code> rules, with required defaults <code>0</code> through <code>3</code> and<br>
+optional filename suffixes beginning with <code>.</code>; the first matching suffix<br>
+overrides the regular-file default. These rules are supplied by the application,<br>
+not hardcoded editor policy in the native binding.</p>
+<p>Dot-prefixed entries are omitted when <code>hidden=false</code>; directories sort first,<br>
+then UTF-8 names in byte order. Child symlinks are not followed. An explicitly<br>
+selected root may itself be a symlink. A final <code>result(-1, error)</code> reports<br>
+completion; empty error means success. Read failures or invalid-UTF-8 filenames<br>
+report a nonempty error and no batches.</p>
+<p>The filtered constructor additionally omits entries matching <code>excludes</code>, a<br>
+newline-separated list of GLib <code>g_pattern_match_simple</code> globs (<code>*</code>, <code>?</code>).<br>
+A pattern without <code>/</code> is matched against the entry name; a pattern with <code>/</code><br>
+is matched against the entry&#x27;s path relative to <code>root</code> (which should be an<br>
+ancestor of <code>path</code>). Empty <code>excludes</code> filters nothing. Excluded directories are<br>
+never enumerated. Pattern validation is the application&#x27;s responsibility.</p>
+<p>Dropping the scan variable does not cancel it. Idempotent <code>cancel</code>, owner Tree<br>
+disposal and shutdown release the callback root without further results.<br>
+An active callback can cancel itself or shut down; registration release waits<br>
+until it unwinds. The worker retains only native memory and a cancellable,<br>
+so cancellation does not block the GUI waiting for filesystem I/O. Applications<br>
+remain responsible for generation checks and for their loading/error rows.</p>
+<h2 id="source-editing">Source editing</h2>
+<p>Configure <code>-DCWHIP_GTK_SOURCEVIEW=ON</code> together with GTK to enable <code>import sourceview</code><br>
+and <code>GtkSource.View</code>. <code>widget()</code> supplies its <code>Gtk.SourceViewWidget</code> for normal<br>
+parenting and expansion. <code>setMonospace(bool)</code> selects GTK&#x27;s text-view<br>
+monospaced-font mode without changing the font of other widgets. Besides text,<br>
+modified state, search/replace, language,<br>
+cursor and shortcut operations, the editor exposes:</p>
+<pre><code>
+bool canUndo()
+bool canRedo()
+bool hasSelection()
+void undo()
+void redo()
+void cut()
+void copy()
+void paste()
+void selectAll()
+void focus()
+void setCursor(int line, int column)
+</code></pre>
+<p><code>setCursor</code> places the insertion cursor at a 1-based line and character column<br>
+and scrolls it into view. Values are clamped to the buffer: lines below 1 or past<br>
+the end select the first/last line, and columns past the end of the line select<br>
+the line end. It matches the 1-based <code>line()</code>/<code>column()</code> getters.</p>
+<p>Undo/redo state and selection query the actual text buffer. Clipboard operations<br>
+use GTK&#x27;s display clipboard; paste is asynchronous and obeys text-view editability.<br>
+<code>setText</code> follows GTK&#x27;s whole-buffer replacement semantics: it is irreversible<br>
+and clears prior undo/redo history. It is appropriate for loading/resetting a<br>
+document; typing, clipboard edits and <code>replaceNext</code> create undoable user edits.<br>
+Selection and edits emit the existing buffer/cursor signals, so menus can refresh<br>
+their action state. <code>onChanged</code> also forwards <code>can-undo</code>/<code>can-redo</code> property<br>
+notifications, which occur after GTK has updated its undo manager.<br>
+<code>onCursorMoved</code> forwards insertion/selection-bound mark changes and<br>
+<code>has-selection</code> notifications. Handlers may therefore run more than once for<br>
+one edit; query current state rather than counting emissions. Each returned<br>
+connection token disconnects the whole grouped subscription. These methods<br>
+share the normal GUI-thread lifetime rules.</p>
+<p>`configure(String font, int size, int tabs, bool spaces, bool numbers, bool wrap,<br>
+bool highlight)` applies a per-view font family/point size, tab width,<br>
+space insertion, line numbers, word/character wrapping, and current-line<br>
+highlighting without replacing the buffer or language. It keeps monospace mode<br>
+enabled. Size must be 6-72 and tabs 1-16; validate user input before calling it.<br>
+<code>clearShortcuts()</code> removes all shortcuts installed through <code>bindShortcut</code>,<br>
+including their callback roots, without changing GTK&#x27;s native editing bindings.<br>
+Removal/disposal during an active shortcut callback defers releasing that<br>
+callback until invocation unwinds.</p>
+<p>Shortcut callbacks registered on a view may dispose that view, its window or<br>
+the application, or shut down (for example a Close or Quit command). A binding<br>
+released while its own callback is running is marked released and its receiver<br>
+root is dropped only after the callback returns; later activations are ignored.</p>
+<p>Search and replace take an option sum of <code>GtkSource.View.CASE_SENSITIVE</code>,<br>
+<code>WHOLE_WORDS</code> and <code>IN_SELECTION</code> (0 is case-insensitive, substring, whole<br>
+buffer; <code>find</code>/<code>replaceNext</code> are the zero-option forms):</p>
+<pre><code>
+bool findWith(String query, int options)
+bool replaceWith(String query, String replacement, int options)
+int replaceAll(String query, String replacement, int options)
+bool captureSearchScope()
+bool hasSearchScope()
+String selectedText()
+</code></pre>
+<p><code>findWith</code> selects the next match after the current selection, wrapping once.<br>
+<code>replaceWith</code> replaces the selection when it is a match, otherwise finds and<br>
+replaces the next one. <code>replaceAll</code> is a single undoable user action, never<br>
+rescans inserted text, and returns the replacement count. Whole words require<br>
+non-word characters (or buffer bounds) on both sides of a match. <code>IN_SELECTION</code><br>
+limits the search to the scope recorded by <code>captureSearchScope()</code>: the current<br>
+selection is stored as text marks whose gravities keep the range covering<br>
+replaced text as the buffer changes. Capturing with no selection clears the<br>
+scope; a selection equal to the last match keeps the existing scope, so repeated<br>
+Find does not shrink it. With <code>IN_SELECTION</code> but no scope, searches fail.</p>
+<h3 id="language-definitions">Language definitions</h3>
+<p>Views start as plain text: no syntax highlighting. Line numbers, auto-indent<br>
+and four-space indentation are independent of language.</p>
+<pre><code>
+bool setLanguage(String id)          // &quot;&quot; selects plain text
+String language()                    // current id, &quot;&quot; when plain
+String GtkSource.Content().languageFor(String path)
+bool GtkSource.Content().isText(String data)
+</code></pre>
+<p>The language protocol uses standard GtkSourceView 5 <code>.lang</code> files:</p>
+<ol>
+<li>A language is registered by installing <code>&lt;id&gt;.lang</code> in the sourceview</li>
+</ul>
+<p>   package&#x27;s <code>language-specs</code> directory (staged or installed). The file name<br>
+   must equal the <code>id</code> attribute of its <code>&lt;language&gt;</code> element. Only ids found<br>
+   in those directories are accepted; <code>setLanguage</code> returns false for others<br>
+   and leaves the view unchanged.</p>
+<ol>
+<li>File association comes from the definition&#x27;s <code>globs</code> and <code>mimetypes</code></li>
+</ul>
+<p>   metadata, through GtkSourceView&#x27;s language manager. <code>languageFor(path)</code><br>
+   matches the file name only (no content sniffing) and returns <code>&quot;&quot;</code> for<br>
+   untitled paths, unknown extensions, or unregistered languages.</p>
+<ol>
+<li><code>cwhip.lang</code> is the only shipped definition (<code><em>.cw;</em>.cw;*.cw</code>). Supporting</li>
+</ul>
+<p>   another language means adding its <code>.lang</code> file; no code changes are needed.</p>
+<p><code>isText</code> returns false for data containing NUL bytes. Cwhip strings are always<br>
+valid UTF-8, so <code>File.readAll</code> raises on undecodable input; applications should<br>
+treat that as a binary/non-text file.</p>
+<h2 id="preference-support-primitives">Preference support primitives</h2>
+<p><code>Gtk.Font().isMonospace(String family)</code> accepts the generic <code>monospace</code> and<br>
+installed Pango monospace families, rejecting control characters and other<br>
+families. It does not select an application-wide font.</p>
+<p><code>Gtk.Keyboard().normalize(String trigger)</code> returns GTK&#x27;s canonical spelling for<br>
+one key-value trigger, or <code>&quot;&quot;</code> for invalid/unsupported syntax (including compound<br>
+alternative triggers). Use this result to compare conflicts.<br>
+<code>int record(Gtk.Entry entry, callback&lt;void(String)&gt; result)</code> captures the next<br>
+non-modifier key combination at the entry; Escape delivers <code>&quot;&quot;</code>. The result<br>
+does not change the entry itself. <code>bool cancel(int token)</code> disconnects and<br>
+removes the recorder, and is safe inside its callback. It remains registered<br>
+until cancelled, its entry is destroyed, or application shutdown; callers must<br>
+cancel after receiving a result and coordinate which entry is recording.</p>
+<p><code>Gtk.Config</code> exposes the small TOML/persistence primitives used by Cwhip Editor&#x27;s<br>
+Cwhip-written settings model, not a settings framework:</p>
+<table>
+<tr><th>Operation</th><th>Result/contract</th></tr>
+<tr><td><code>String validate(String text)</code></td><td><code>&quot;&quot;</code> for valid TOML; otherwise a parse/scalar error. Encoded NUL strings are unsupported.</td></tr>
+<tr><td><code>String fileStatus(String path)</code></td><td><code>&quot;&quot;</code> for an existing path, <code>missing</code> only for file-not-found, or an explicit stat/broken-symlink error.</td></tr>
+<tr><td><code>String value(String text, String section, String key)</code></td><td>After validation: <code>&quot;&quot;</code> for absent, <code>s</code> plus decoded string, <code>i</code> plus decimal integer, <code>btrue</code>/<code>bfalse</code>, <code>t</code> for a table, <code>x</code> for another type. Empty section addresses the root.</td></tr>
+<tr><td><code>String key(String text, String section, int index)</code></td><td>Zero-based key enumeration; <code>&quot;&quot;</code> at the end or for an absent table.</td></tr>
+<tr><td><code>String quote(String text)</code></td><td>A TOML-escaped basic string literal.</td></tr>
+<tr><td><code>String item(String text, String section, String key, int index, String field)</code></td><td>After validation: a tagged value (same tags as <code>value</code>) for zero-based element <code>index</code> of array <code>section.key</code>, or with nonempty <code>field</code>, that key of a table element (<code>&quot;&quot;</code> if absent, <code>x</code> if the element is not a table). <code>&quot;&quot;</code> past the end or for a missing array.</td></tr>
+<tr><td><code>String remove(String text, String section, String key)</code></td><td>Validated TOML with one key removed (empty section addresses the root); other values are kept and serialized as by <code>merge</code>.</td></tr>
+<tr><td><code>String merge(String original, String updates)</code></td><td>Both inputs must be validated TOML; recursively overlays updates and serializes, preserving unrelated values but not comments/formatting.</td></tr>
+<tr><td><code>void save(String path, String text, String expected, callback&lt;void(String)&gt; result)</code></td><td>Asynchronously loads the local file, checks expected previous contents, then atomically replaces using its ETag where supported. Expected <code>&quot;&quot;</code> allows a missing first-run file. Result is <code>&quot;&quot;</code> on success, or an explicit I/O/concurrent-edit error. The caller creates the parent directory and bounds/validates the data.</td></tr>
+</table>
+<p>Save callback roots and copied bytes survive asynchronous I/O. Shutdown drains<br>
+pending operations without invoking their callbacks after teardown. These<br>
+operations, except pure TOML conversion, share GTK&#x27;s GUI-owner rules. The TOML<br>
+parser is vendored MIT-licensed<br>
+<a href="https://github.com/cktan/tomlc99/tree/29076dfd095bbbbd50a3c1b2760d29f4b83e74ac">tomlc99</a><br>
+(<code>toml.c</code>/<code>toml.h</code>, with license headers retained); no runtime parser was<br>
+available in the repository. The compiler&#x27;s package-manifest-specific parser<br>
+is not used as a general user-settings parser.</p>
+<h2 id="ownership-aliases-and-disposal">Ownership, aliases, and disposal</h2>
+<p>The package sinks floating GObject references and owns an independent native<br>
+reference for every concrete wrapper; GTK&#x27;s parent/application references remain<br>
+GTK&#x27;s responsibility. Its private records and retained, non-invoked receiver<br>
+callbacks keep wrappers alive until disposal or shutdown. Dropping a Cwhip<br>
+variable does <strong>not</strong> dispose its native object. Detached widgets remain<br>
+application-owned resources until explicitly disposed or shut down.</p>
+<p><code>dispose()</code> is explicit, GUI-thread-only and idempotent. It disconnects the<br>
+source&#x27;s signals, recursively disposes its <strong>currently attached Cwhip children</strong>,<br>
+detaches from its parent, destroys windows, and releases owned references.<br>
+<code>remove(child)</code> detaches without disposing: the child remains usable and can<br>
+be attached elsewhere. A child disposed directly is removed from its parent.<br>
+Closing/destroying a native application window also invalidates its wrapper and<br>
+recursively disposes attached children, even when an external GObject reference<br>
+keeps native storage alive. A prevented close leaves the entire tree live.</p>
+<p>Assignments and base casts are aliases to the same wrapper/record, not independent<br>
+owners. Disposing through any alias invalidates all aliases. There is no public<br>
+API for manufacturing another owner from a raw native pointer. All operations<br>
+after disposal fail clearly, except repeat <code>dispose()</code> and the GUI-only<br>
+<code>disposed()</code> query. After application shutdown, every widget reports disposed.<br>
+Disposed records are tombstones until shutdown; private integer identities are<br>
+never reused and are never dereferenced as native pointers.</p>
+<p>The native ownership contract allows only one <code>Widget</code> base per managed object.<br>
+Multiple widget base subobjects are rejected during construction, so signal<br>
+registration cannot silently select another widget base. The shipped hierarchy<br>
+does not provide a general custom/native-widget subclass framework.</p>
+<p>No widget, connection, or application GC finalizer performs GTK teardown.<br>
+Use <code>dispose()</code>, not Cwhip&#x27;s language-level <code>destroy()</code>, for GUI lifetime.<br>
+Custom subclass finalizers must not call GTK: GC can run on a worker, and native<br>
+teardown is exclusively a GUI-thread operation.</p>
+<h2 id="typed-signals">Typed signals</h2>
+<p><code>connection.disconnect()</code> returns true on the first live disconnection and false<br>
+thereafter. <code>connection.connected()</code> reports current state; both are GUI-only<br>
+and remain usable after source disposal or application shutdown.<br>
+Ignoring/dropping the returned connection does not disconnect the handler.<br>
+Typed <code>SignalConnection(source, action)</code> constructors are also available for<br>
+<code>Application</code>, <code>Button</code>, <code>Entry</code>, <code>Window</code>, and <code>CheckButton</code>, with the same<br>
+callback signatures as their registration methods. They expose no native<br>
+handle or connection-token constructor.</p>
+<p>Handlers receive Cwhip values, never raw GTK instance pointers:<br>
+<code>Button</code> invokes <code>callback&lt;void()&gt;</code>; <code>Entry</code> invokes <code>callback&lt;void(String)&gt;</code><br>
+with a copied, rooted managed string; <code>CheckButton</code> invokes<br>
+<code>callback&lt;void(bool)&gt;</code> with its current active state. A<br>
+<code>Window</code> close-request handler returns true to prevent closing and false to<br>
+allow GTK&#x27;s default close action. GTK&#x27;s native signal ordering/accumulators<br>
+still apply when multiple handlers are connected.</p>
+<p>Connections retain callback receivers until disconnection/source disposal/<br>
+shutdown and the last in-flight invocation <strong>and</strong> GLib closure user have<br>
+finished. Disconnecting or disposing inside a handler, including nested<br>
+emissions, is supported. A disconnected handler does not receive later emissions.<br>
+The native text pointer is copied before entering Cwhip; callbacks can allocate,<br>
+collect, retain the string, and mutate/dispose the source without invalidating<br>
+the payload. GTK may coalesce or suppress recursive editable changes; no extra<br>
+synthetic notifications are promised.</p>
+<h2 id="runnable-sample">Runnable sample</h2>
+<p>This headless-tested program builds its hierarchy during activation and uses a<br>
+typed changed signal to update a label. The posted finish action makes the<br>
+documentation program terminate automatically. For an interactive editor with<br>
+a checkbox, scrolled content, and a close button, see <code>examples/gtk.cw</code><br>
+(run without <code>--test</code>).</p>
+<pre><code>
+// test: {&quot;stdout&quot;: &quot;Hello GTK&quot;, &quot;requires&quot;: &quot;gtk&quot;}
+import gtk
+
+class Demo {
+    Gtk.Window window
+    Gtk.Entry entry
+    Gtk.Label label
+    callback&lt;void(String)&gt; changedAction
+    callback&lt;void()&gt; finishAction
+
+    void activate() {
+        window = Gtk.Window(&quot;Cwhip&quot;)
+        Gtk.Box layout = Gtk.Box(Gtk.Box.VERTICAL, 8)
+        window.setChild(layout)
+        entry = Gtk.Entry(&quot;&quot;)
+        label = Gtk.Label(&quot;&quot;)
+        layout.append(entry)
+        layout.append(label)
+        entry.onChanged(changedAction)
+        window.present()
+        Gtk.Application().post(finishAction)
+    }
+    void changed(String text) { label.setText(text) }
+    void finish() {
+        entry.setText(&quot;Hello GTK&quot;)
+        print(label.text())
+        window.close()
+    }
+}
+
+start {
+    Gtk.Application app = Gtk.Application(&quot;org.cwhip.Demo&quot;)
+    Demo demo = Demo()
+    demo.changedAction = demo.changed
+    demo.finishAction = demo.finish
+    app.onActivate(demo.activate)
+    app.run()
+    app.shutdown()
+}
+</code></pre>
+<h2 id="threading-and-native-boundaries">Threading and native boundaries</h2>
+<p>All creation, properties, parenting, signals, queries and disposal require the<br>
+designated registered GUI thread and its managed lock. Worker threads cannot<br>
+call widget methods, disconnect signals or query GUI state directly; use <code>post</code>.<br>
+Callbacks use the existing <code>callback&lt;R(P...)&gt;</code> bridge and exact context-first<br>
+adapters. Package-native forwarding, callback transfers, and thread/lock checks<br>
+are private implementation machinery, not public raw-pointer APIs.</p>
+<p><code>run()</code> releases the managed lock across <code>g_application_run()</code> so workers progress<br>
+while GTK waits. Every native-to-Cwhip signal acquires the lock with<br>
+<code>cwhip_runtime_managed_enter()</code> and restores it with <code>managed_leave(acquired)</code>.<br>
+Synchronous/nested reentry preserves lock ownership; foreign threads are never<br>
+registered implicitly. One-shot worker posts prepare a rooted, non-invocable<br>
+<code>CwhipCallbackTransfer</code>; GUI dispatch accepts it into a fresh GUI-owned context.<br>
+Cancellation consumes the transfer without invocation.</p>
+<p>Native contract violations print a diagnostic and abort; null managed receiver<br>
+access follows the existing Cwhip runtime diagnostic. Exceptions escaping any<br>
+native callback abort <strong>inside</strong> the bridge, never unwind through GTK or fabricate<br>
+a return value. Catch recoverable exceptions inside handlers. Bridge ownership<br>
+checks are unchanged.</p>
+<p>The suite uses real GTK/Xvfb and isolated session buses, compiled and installed<br>
+consumers, GC/reentry/misuse cases, optional documentation/examples, and ASan/UBSan.<br>
+<code>tests/test_gtk_bindings.py</code> additionally drives real native chooser responses,<br>
+overwrite acceptance/decline, callback GC and cancellation/teardown, menu actions,<br>
+and actual multiline source-widget allocations before and after window resize.<br>
+Its private fixture is not shipped in the package.<br>
+See <a href="TESTING.html">TESTING.md</a>. Styling, broad dialog/model coverage, drawing, input events,<br>
+arbitrary native-widget adoption, file-open/command-line activation, and broad GTK<br>
+property coverage are not implemented in this release.</p>
+</main>
+<footer>
+  <p>Cwhip. Documentation source of truth is the repository.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

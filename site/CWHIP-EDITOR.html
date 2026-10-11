@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cwhip editor — Cwhip</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html">cwhip</a>
+  <nav class="main-nav">
+    <a href="index.html">Home</a>
+    <a href="docs.html">Documentation</a>
+    <a href="about-site.html">About this site</a>
+    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
+  </nav>
+</header>
+<main>
+<h1 id="cwhip-editor">Cwhip editor</h1>
+<p><code>examples/editor/cwhip_editor.cw</code> is a GTK editor written in Cwhip. Its compiler<br>
+is <code>cwhip</code>; runtime and package ABI names use the <code>cwhip_*</code> prefix. The editor uses the optional GTK<br>
+package and a separate GtkSourceView-backed <code>sourceview</code> package. It provides<br>
+File, Edit, Project and Help menus, native open/save-as file choosers, multiple notebook tabs,<br>
+duplicate-path focusing, open/save/save-as, session<br>
+recent files, dirty tab titles, close protection, undo/redo, find/replace,<br>
+line/column status, a non-modal Preferences window, and configurable GTK keyboard shortcuts. GTK&#x27;s text view<br>
+provides ordinary selection, cursor navigation, and clipboard bindings.</p>
+<p>The editor&#x27;s source adapter is <code>GtkSource.View</code>. It exposes managed multiline<br>
+text buffers, undo/redo, modified state, cursor coordinates, search/replace,<br>
+syntax-context queries, and shortcut registration while remaining attachable<br>
+to existing <code>Gtk.Widget</code> containers. The document editor uses GtkSourceView&#x27;s<br>
+monospace setting; the rest of the application keeps the platform&#x27;s normal<br>
+font. The <code>cwhip</code> GtkSourceView language<br>
+definition highlights Cwhip keywords/types, strings, comments, and<br>
+numbers. Highlighting is enabled only for recognized source files: a document&#x27;s<br>
+language is chosen from its <code>.cw</code> file suffix and selects <code>cwhip</code>,<br>
+and untitled documents, <code>.txt</code> files, and other unrecognized names are plain<br>
+text. Save As re-evaluates the language for the new name. Additional languages<br>
+are added by installing a GtkSourceView <code>&lt;id&gt;.lang</code> definition in the<br>
+sourceview package (see <a href="GTK.html#language-definitions">GTK source editing</a>);<br>
+only Cwhip is shipped. Documents are represented separately from notebook pages; opening an<br>
+already-open path selects its existing tab. <code>openDocument(path)</code> returns the<br>
+existing or newly opened document independently of selection, and<br>
+<code>activateDocument(document)</code> selects its tab; Project Explorer uses<br>
+these same APIs. The notebook, scrolled viewport, and source view explicitly<br>
+expand horizontally and vertically, so the multiline editor fills the remaining<br>
+window space and grows when the window is resized; the menu, search controls,<br>
+close prompt, and status line retain their natural height.</p>
+<h2 id="build-and-run">Build and run</h2>
+<p>On Debian/Ubuntu, install the compiler/build tools and optional GUI development<br>
+and headless-test dependencies:</p>
+<pre><code>
+sudo apt install build-essential cmake clang python3 pkg-config \
+  libgtk-4-dev libgtksourceview-5-dev xvfb dbus-daemon
+</code></pre>
+<p>Installed GUI development dependencies are detected on fresh configurations.<br>
+Build the editor directly:</p>
+<pre><code>
+cmake -S . -B build-cwhip -G &quot;Unix Makefiles&quot; -DCMAKE_BUILD_TYPE=Debug
+make -C build-cwhip -j4 cwhip_editor
+./bin/cwhip-editor file1.cw file2.cw
+</code></pre>
+<p>Inside the configured Makefiles build directory, use <code>make cwhip_editor</code>; with any<br>
+generator, use <code>cmake --build build-cwhip --target cwhip_editor -j4</code>. The target builds<br>
+the compiler and required support on a fresh build, generates a private package<br>
+lock from staged modules, and compiles the editor only when its inputs change.<br>
+An ordinary compiler build prepares the enabled peripheral support but does<br>
+not compile the editor. The executable is <code>&lt;source&gt;/bin/cwhip-editor</code> by default;<br>
+with <code>-DCWHIP_STAGE_PREFIX=/absolute/prefix</code> it is <code>/absolute/prefix/bin/cwhip-editor</code>.<br>
+No manual compiler invocation or package activation is needed. Cwhip is not<br>
+currently an install target.</p>
+<p>Headless tests require Xvfb and <code>dbus-daemon</code>; they default to enabled when<br>
+those tools are present, otherwise configuration explicitly reports them<br>
+disabled without blocking Cwhip. Set <code>-DCWHIP_GTK_TESTS=ON</code> to require them, or<br>
+<code>-DBUILD_TESTING=OFF</code> to omit all tests. Compiler-only builds<br>
+can set <code>-DCWHIP_GTK=OFF -DCWHIP_GTK_SOURCEVIEW=OFF</code>; their <code>cwhip_editor</code> target reports<br>
+the missing support explicitly. To enable GUI support in an already configured<br>
+compiler-only build, reconfigure with both options <code>ON</code>. Even with GUI packages<br>
+enabled, the compiler and non-import applications do not link GTK or<br>
+GtkSourceView. See <a href="INSTALLATION.html">build and installation</a>.</p>
+<p><strong>File &gt; New</strong> creates an editable untitled tab. <strong>Open...</strong> uses a native GTK<br>
+file chooser that allows selecting several files; each selected file is opened<br>
+(an already-open file focuses its existing tab) and the last one becomes active.<br>
+A failure for one file does not stop the others: the status line reports the<br>
+failure (or <code>Open failed for N of M files</code>), and one error dialog lists every<br>
+file that could not be opened. Binary files (containing NUL bytes) and files<br>
+that are not valid UTF-8 are refused with a &quot;not a text file&quot; error dialog;<br>
+they are never lossily decoded, and existing documents are unchanged.<br>
+<strong>Save</strong> writes the active document to its current path, or opens <strong>Save As...</strong><br>
+for an untitled document initially named <code>untitled.cw</code>. Save As asks for confirmation before replacing an<br>
+existing file, and refuses a destination belonging to another open document.<br>
+Cancelling a chooser or overwrite confirmation leaves files and document<br>
+identities unchanged. Open/read/write/flush/close failures appear in the status<br>
+line; Open failures from the chooser or binary files also show a modal error<br>
+dialog parented to the editor window. The editor supports local filesystem paths; nonlocal chooser URIs are<br>
+explicitly rejected rather than interpreted as cancellation.<br>
+<strong>Recent</strong> reopens the last unique file added to the session history.<br>
+Command-line file arguments open tabs at startup.</p>
+<p><strong>Edit</strong> offers Undo, Redo, Cut, Copy, Paste, Select All, Find, Replace, and Preferences.<br>
+Find and Replace open a separate, non-modal window transient for the editor.<br>
+The Find window contains the query and Find next; Replace adds the replacement<br>
+field and Replace next / Replace all. Closing the window hides it and preserves<br>
+the query/options for next time. The dialog follows the active document: its<br>
+search uses that tab&#x27;s buffer, and in-selection bounds are stored separately<br>
+per document. While it is open, switching to a tab with selected text captures<br>
+that selection as the tab&#x27;s search scope; tabs without a selection retain any<br>
+existing scope. If text is selected on a single line when Find or Replace<br>
+is opened, it replaces the Find query; otherwise the previous query is kept.<br>
+<strong>Find next</strong> selects the next match after the current selection,<br>
+wrapping around once; <strong>Replace next</strong> replaces the selected match (or the next<br>
+one), and <strong>Replace all</strong> replaces every match in one undoable step and reports<br>
+the count. The <strong>Whole words</strong>, <strong>Case sensitive</strong>, and <strong>In selection</strong> check<br>
+boxes apply to all three. Searches are case-insensitive substring matches by<br>
+default. The <strong>In selection</strong> scope is the selection active when Find or<br>
+Replace (menu or shortcut) is invoked, and its bounds follow replacements; a<br>
+selection that is just the last Find match keeps the existing scope, and<br>
+invoking Find or Replace with no selection clears it. With <strong>In selection</strong><br>
+checked but no scope, the status line asks you to select text first. Undo/Redo and Cut/Copy menu items<br>
+track the active buffer&#x27;s undo/redo and selection state. File dialogs are modal,<br>
+asynchronous, parented to the editor window, and cancelled on parent teardown;<br>
+they do not run nested event loops.</p>
+<p>A modified tab is marked with <code>*</code>. <strong>File &gt; Close</strong> (<code>&lt;Control&gt;w</code>) closes only<br>
+the active tab; closing the last tab leaves the window open with a fresh<br>
+untitled document. Only <strong>Quit</strong> (<code>&lt;Control&gt;q</code>) and a window-close request exit<br>
+the editor. Close, Quit, and a window-close request offer in-app <strong>Save</strong>,<br>
+<strong>Discard</strong>, and <strong>Cancel</strong> controls for modified documents. Saving an<br>
+untitled document during close opens Save As; cancelling that chooser cancels<br>
+the pending close without discarding changes. For a window close with several<br>
+modified documents, Save handles them one at a time until all are saved.</p>
+<p>Default shortcuts use GTK trigger notation: <code>&lt;Control&gt;s</code> saves,<br>
+<code>&lt;Control&gt;o</code> opens the file chooser, <code>&lt;Control&gt;n</code> creates a tab,<br>
+<code>&lt;Control&gt;f</code> focuses Find, <code>&lt;Control&gt;h</code> focuses Replace, <code>&lt;Control&gt;z</code> undoes,<br>
+and <code>&lt;Control&gt;&lt;Shift&gt;z</code> redoes. <code>&lt;Control&gt;&lt;Shift&gt;s</code> opens Save As,<br>
+<code>&lt;Control&gt;w</code> closes the active tab, and <code>&lt;Control&gt;q</code> requests Quit.<br>
+<code>&lt;Control&gt;x</code>, <code>&lt;Control&gt;c</code>, <code>&lt;Control&gt;v</code>, and <code>&lt;Control&gt;a</code> perform Cut, Copy,<br>
+Paste, and Select All. <code>&lt;Control&gt;comma</code> opens Preferences. Menus and configurable<br>
+shortcuts resolve to the same named command callbacks.</p>
+<h2 id="project-explorer">Project Explorer</h2>
+<p><strong>File &gt; Open Folder...</strong> opens a modal folder chooser parented to the editor.<br>
+Acceptance replaces the root in a resizable left-hand Project Explorer;<br>
+cancellation leaves the current root and tabs unchanged. The root opens<br>
+automatically. Expand a directory with its arrow or double-click it; double-click<br>
+a file (or press Enter on it) opens it through the same document-opening path<br>
+as File &gt; Open, including existing-tab focus and binary/invalid-UTF-8 rejection.<br>
+Single-click selects a row without changing the document.</p>
+<p>Only expanded directories are enumerated. Filesystem enumeration and<br>
+directories-first, case-sensitive UTF-8 byte-order sorting run off the GUI<br>
+thread; entries are delivered in small, bounded batches. GTK virtualizes<br>
+rows, and Cwhip retains loading state only for directories actually expanded,<br>
+not a managed object for every file in a large folder. Folder, source/text,<br>
+image, symlink and special-file icons distinguish entries. Symlinks are shown<br>
+as leaves, never recursively expanded; a link to a regular text file can still<br>
+be opened normally. Loading, empty-directory and read-error rows make progress<br>
+and failures visible. Non-UTF-8 filenames produce an explicit directory error,<br>
+rather than silently skipping or lossily decoding names.</p>
+<p><strong>Refresh</strong> re-reads the root after files are added, removed or permissions<br>
+change; <strong>Show Hidden Files</strong> includes dot-prefixed files and directories.<br>
+Both rebuild the tree with its root expanded and descendants collapsed;<br>
+open documents, unsaved edits and the active tab are unchanged. Expansion<br>
+results are cached until that rebuild. Replacing the root, refreshing, or<br>
+closing the editor cancels obsolete work and prevents stale results from<br>
+repopulating the tree. A plain folder opened this way has no saved state; the<br>
+hidden-files toggle is never saved. Expansion, tabs and layout are saved only<br>
+for Cwhip projects (below). The Explorer does not rename/delete files or add<br>
+Git, build settings or LSP integration.</p>
+<h2 id="projects">Projects</h2>
+<p>A Cwhip project is a folder containing <code>.cwhip/project.toml</code>. Ordinary folders<br>
+still open through <strong>File &gt; Open Folder...</strong> without any project metadata and<br>
+use only the global Preferences. Opening or creating a project never executes<br>
+anything: there are no build commands, LSP servers, plugins or trust prompts.</p>
+<p>All project commands live in the <strong>Project</strong> menu and are ordinary named<br>
+commands (<code>project-new</code>, <code>project-open</code>, <code>project-save</code>, <code>project-save-as</code>,<br>
+<code>project-delete</code>, <code>project-configure</code>), so they can be bound in Preferences &gt;<br>
+Keyboard like any other command. Choosers are modal folder choosers parented<br>
+to the editor; cancelling one changes nothing.</p>
+<ul>
+<li><strong>New Project...</strong> chooses a root folder and creates <code>.cwhip/project.toml</code></li>
+</ul>
+<p>  and <code>.cwhip/workspace.toml</code> there (project name defaults to the folder name).<br>
+  Source files are never created, modified or moved. If the folder already has<br>
+  Cwhip metadata, a confirmation bar offers <strong>Replace Metadata</strong> or <strong>Cancel</strong>.</p>
+<ul>
+<li><strong>Open Project...</strong> chooses a folder; it must already contain</li>
+</ul>
+<p>  <code>.cwhip/project.toml</code>, otherwise an alert explains how to create one.<br>
+  Running <code>cwhip-editor DIR</code> opens <code>DIR</code> as a project when it contains that file and<br>
+  as a plain folder otherwise.</p>
+<ul>
+<li><strong>Save Project</strong> writes the current configuration and workspace state.</li>
+<li><strong>Save Project As...</strong> chooses a different folder and writes a copy of the</li>
+</ul>
+<p>  project configuration plus the workspace state rebased to that folder. Saved<br>
+  tabs and expanded folders whose relative paths do not exist under the new<br>
+  root are dropped. Source trees are not copied or moved, the original<br>
+  project&#x27;s metadata is left untouched, and open documents stay open. The new<br>
+  folder becomes the active project. Existing metadata in the target requires<br>
+  <strong>Replace Metadata</strong>; choosing the current root is refused.</p>
+<ul>
+<li><strong>Delete Project...</strong> asks for confirmation naming the root, then removes</li>
+</ul>
+<p>  exactly <code>.cwhip/workspace.toml</code> and <code>.cwhip/project.toml</code> and removes<br>
+  <code>.cwhip</code> only if it is then empty. Source files and any other files in<br>
+  <code>.cwhip</code> are preserved; nothing is deleted recursively, and a symbolic-link<br>
+  <code>.cwhip</code> is refused. The editor stays on the same folder as a plain folder,<br>
+  documents stay open, and a remembered startup project for that root is<br>
+  forgotten.</p>
+<ul>
+<li><strong>Configure Project...</strong> opens a non-modal window parented to the editor:</li>
+</ul>
+<p>  project name, Explorer exclusions, and editor overrides. <strong>Apply</strong> validates<br>
+  and saves <code>project.toml</code> and applies the result immediately; **Reset All to<br>
+  Inherit** unchecks every override.</p>
+<p>Switching projects (Open, New on another folder, Open Folder, or Delete) and<br>
+Quit first save the current workspace. Modified documents then get the normal<br>
+<strong>Save</strong> / <strong>Discard</strong> / <strong>Cancel</strong> prompt; <strong>Cancel</strong> leaves the current<br>
+project, documents and state unchanged. Dirty edits are never written to<br>
+workspace state. If saving the workspace fails at Quit, a bar offers **Quit<br>
+Without Saving<strong> or </strong>Cancel**.</p>
+<h3 id="settings-precedence">Settings precedence</h3>
+<p>Effective editor settings are project override, then user Preference, then the<br>
+built-in default. In Configure Project, a checked override row stores its value<br>
+in <code>project.toml</code>; an unchecked row is absent from the file and inherits. While<br>
+a project is active, Preferences shows which settings the project overrides,<br>
+and changing an overridden Preference is saved but does not affect that<br>
+project&#x27;s documents. Overrides apply to existing and newly opened documents.</p>
+<h3 id="explorer-exclusions">Explorer exclusions</h3>
+<p><code>[explorer] exclude</code> is a list of glob patterns (<code>*</code>, <code>?</code>) matched with GLib<br>
+<code>g_pattern_match_simple</code>. A pattern without <code>/</code> matches an entry name at any<br>
+depth (<code>build</code>, <code>*.log</code>); a pattern containing <code>/</code> matches the path relative to<br>
+the project root (<code>docs/generated</code>). Patterns must not start or end with <code>/</code><br>
+or contain <code>.</code>/<code>..</code> segments. Excluded entries are hidden from the Explorer<br>
+and never enumerated; files remain on disk and can still be opened with File &gt;<br>
+Open. Configure Project accepts the list comma-separated.</p>
+<h3 id="storage-format">Storage format</h3>
+<p><code>.cwhip/project.toml</code> (at most 64 KiB) is meant to be shared:</p>
+<pre><code>
+version = 1
+
+[project]
+name = &quot;Demo&quot;
+
+[explorer]
+exclude = [&quot;build&quot;, &quot;*.log&quot;]
+
+[editor]          # optional; each absent key inherits
+tab_width = 2
+insert_spaces = false
+</code></pre>
+<p>Editor keys and ranges are the same as user settings (<code>font_family</code>,<br>
+<code>font_size</code>, <code>tab_width</code>, <code>insert_spaces</code>, <code>line_numbers</code>, <code>wrap</code>,<br>
+<code>highlight_current_line</code>). Unknown keys are retained when saving.</p>
+<p><code>.cwhip/workspace.toml</code> (at most 1 MiB) is local session state:</p>
+<pre><code>
+version = 1
+
+[workspace]
+active = &quot;src/a.cw&quot;
+explorer_width = 300
+window_width = 980
+window_height = 720
+expanded = [&quot;src&quot;]
+files = [{ path = &quot;src/a.cw&quot;, line = 2, column = 3 }]
+</code></pre>
+<p>All paths are relative to the project root; absolute paths, <code>..</code> segments<br>
+and paths escaping the root are rejected. Only saved files with a path are<br>
+recorded (untitled tabs are not). On restore, missing files, binary/invalid<br>
+UTF-8 files and read errors are skipped and reported; cursors are clamped to<br>
+the file. Widths are 0-5000 and window sizes 200-10000 x 150-10000; GTK may<br>
+enlarge the window to its minimum size or the screen.</p>
+<p>For version control, commit <code>.cwhip/project.toml</code> and ignore the local state:</p>
+<pre><code>
+.cwhip/workspace.toml
+</code></pre>
+<p>Both files are written with the same asynchronous atomic replacement as user<br>
+settings, private permissions, and an expected-content check that refuses to<br>
+overwrite a file changed by another process. Malformed TOML, unsupported or<br>
+missing <code>version</code>, wrong types/ranges, oversized files and read errors are<br>
+reported in an alert. Invalid values are ignored, and saving the invalid file<br>
+is disabled until it is repaired and the project reopened, so it is never<br>
+overwritten automatically. Write failures are reported and never shown as<br>
+saved. Persisted paths are only used to open files under the root; they never<br>
+authorize deletion or execution.</p>
+<h3 id="reopening-the-last-project">Reopening the last project</h3>
+<p>Preferences &gt; Editor has <strong>Reopen last project on startup</strong> (default off). When<br>
+enabled, the user settings file remembers only the root path of the last active<br>
+project:</p>
+<pre><code>
+[project]
+reopen_last = true
+last_root = &quot;/home/me/src/demo&quot;
+</code></pre>
+<p>The workspace itself stays in that project&#x27;s <code>.cwhip</code>. Only this metadata path<br>
+is recognized. Older product-named project metadata is ignored and left<br>
+untouched; the editor does not copy, rename, or migrate it. Turning the option off<br>
+clears <code>last_root</code>. At startup the project is reopened only if the option is on<br>
+and no file or folder was given on the command line. A missing or invalid<br>
+remembered project is reported in an alert and the editor starts normally.</p>
+<h2 id="about">About</h2>
+<p><strong>Help &gt; About Cwhip...</strong> opens a small window parented to the editor showing the<br>
+editor name, version (the repository version from <code>CMakeLists.txt</code>), a short<br>
+description, licensing status (the repository has no license file) and the<br>
+project URL as text. <strong>Close</strong> hides it; it is closed with the editor.</p>
+<h2 id="preferences-and-settings">Preferences and settings</h2>
+<p><strong>Edit &gt; Preferences...</strong> or <strong>Ctrl+,</strong> opens a non-modal window with Editor<br>
+and Keyboard navigation on the left. Closing it hides it; reopening preserves<br>
+the selected page. Settings are global: changes apply immediately to all open<br>
+documents and to subsequently created/opened documents, without changing file<br>
+contents, modified state, language detection, or search options.</p>
+<p>The <strong>Editor</strong> page controls an installed monospace font family (or the generic<br>
+<code>monospace</code>), font size, tab width, insertion of spaces vs tabs, line numbers,<br>
+wrapping, and current-line highlighting. Font names must be 1-128 UTF-8 bytes<br>
+without control characters; proportional/unknown families are rejected.<br>
+Font size is an integer <strong>6-72 points</strong>, and tab width is an integer **1-16<br>
+columns**. Defaults are <code>monospace</code>, 12 pt, 4 columns, spaces, line numbers on,<br>
+wrapping off, and current-line highlighting off. Changing tab width/insertion<br>
+does not rewrite existing indentation.</p>
+<p>The <strong>Keyboard</strong> page searches named commands, displays their current GTK<br>
+trigger strings, and permits editing or recording one key combination. Click<br>
+<strong>Record</strong>, then press the combination; modifiers alone keep recording and<br>
+Escape cancels. Starting another recording, switching categories, or hiding<br>
+Preferences cancels the previous recorder. Invalid syntax and conflicts<br>
+(compared using canonical GTK triggers, not raw spelling) show an error without<br>
+replacing either command. <strong>Disable</strong> removes a binding; <strong>Reset</strong> restores one<br>
+binding unless its default would conflict. Each section&#x27;s <strong>Reset to Defaults</strong><br>
+requires <strong>Confirm Reset</strong>; <strong>Cancel</strong> changes nothing. Only document command<br>
+shortcuts are configurable; GTK&#x27;s ordinary text navigation remains native.</p>
+<p>New settings save automatically to <code>$XDG_CONFIG_HOME/cwhip/settings.toml</code>, or<br>
+<code>$HOME/.config/cwhip/settings.toml</code> when XDG_CONFIG_HOME is unset/empty.<br>
+Settings in older product-named directories are ignored and left untouched;<br>
+the editor does not copy or migrate them.<br>
+The config root must be absolute. The settings file is user-editable UTF-8 TOML,<br>
+with a 64 KiB limit and this version-1 schema:</p>
+<pre><code>
+version = 1
+
+[editor]
+font_family = &quot;monospace&quot;
+font_size = 12
+tab_width = 4
+insert_spaces = true
+line_numbers = true
+wrap = false
+highlight_current_line = false
+
+[keyboard]
+save = &quot;&lt;Control&gt;s&quot;
+close = &quot;&lt;Control&gt;w&quot;
+quit = &quot;&lt;Control&gt;q&quot;
+find = &quot;&lt;Control&gt;f&quot;
+replace = &quot;&lt;Control&gt;h&quot;
+preferences = &quot;&lt;Control&gt;comma&quot;
+
+[project]
+reopen_last = false
+last_root = &quot;&quot;
+</code></pre>
+<p>Editor keys are optional and use defaults when absent. Keyboard keys are<br>
+command IDs (<code>new</code>, <code>open</code>, <code>save</code>, <code>save-as</code>, <code>close</code>, <code>quit</code>, <code>find</code>, <code>replace</code>,<br>
+<code>undo</code>, <code>redo</code>, <code>cut</code>, <code>copy</code>, <code>paste</code>, <code>select-all</code>, <code>preferences</code>,<br>
+<code>project-new</code>, <code>project-open</code>, <code>project-save</code>,<br>
+<code>project-save-as</code>, <code>project-delete</code>, <code>project-configure</code>, <code>about</code>); omitted IDs<br>
+use defaults and <code>&quot;&quot;</code> explicitly disables one. Unknown keyboard commands are<br>
+errors. A missing file is normal first-run behavior: no file is created until<br>
+a valid setting changes.</p>
+<p>Malformed TOML, wrong types/ranges, invalid/conflicting shortcuts, read errors,<br>
+unsupported/missing versions, and strings with encoded NULs are reported in a<br>
+startup alert and Preferences. Valid entries still apply, invalid editor entries<br>
+use defaults, and invalid/conflicting bindings are not installed. Automatic<br>
+saving is disabled for that session, so the original file is not clobbered;<br>
+repair it and restart. Preference edits can still apply for the current session.<br>
+Write failures are displayed explicitly and never reported as saved.</p>
+<p>Saving uses asynchronous GIO atomic replacement on the local filesystem,<br>
+with private file permissions, an expected-content check and an ETag check<br>
+against concurrent edits. Changes arriving during a save are coalesced into<br>
+the next save. Quit waits for the latest queued save; a write failure keeps<br>
+Preferences available rather than claiming success. Unknown valid keys/tables<br>
+outside the keyboard command map are retained. Serialization normalizes<br>
+formatting and does not retain comments; nested unrelated tables/arrays may<br>
+be emitted inline. External edits/removal require restarting before saving.</p>
+<h3 id="shortcut-import-file">Shortcut import file</h3>
+<p><code>cwhip-shortcuts.conf</code> in the working directory takes precedence.<br>
+It is read when the TOML settings file is absent or has no <code>[keyboard]</code> table.<br>
+Product-named shortcut files are ignored and left untouched. Each nonblank line maps one<br>
+GTK trigger to one command:</p>
+<pre><code>
+&lt;Control&gt;s=save
+&lt;Control&gt;o=open
+&lt;Control&gt;n=new
+&lt;Control&gt;f=find
+&lt;Control&gt;h=replace
+&lt;Control&gt;z=undo
+&lt;Control&gt;&lt;Shift&gt;z=redo
+&lt;Control&gt;&lt;Shift&gt;s=save-as
+&lt;Control&gt;w=close
+&lt;Control&gt;q=quit
+&lt;Control&gt;x=cut
+&lt;Control&gt;c=copy
+&lt;Control&gt;v=paste
+&lt;Control&gt;a=select-all
+</code></pre>
+<p>As before, a legacy file <strong>replaces</strong> the default shortcut map: commands omitted<br>
+from it remain disabled. Preferences adds its new Ctrl+, binding only if the<br>
+legacy map does not already use that trigger and does not configure Preferences<br>
+itself. The menu always remains available. An existing TOML <code>[keyboard]</code> table is authoritative<br>
+and the legacy file is ignored, even if malformed; missing TOML command keys<br>
+then use built-in defaults, not legacy bindings.</p>
+<p>The first successful preferences edit saves the complete effective map<br>
+(including disabled commands) into TOML, migrating without deleting or<br>
+rewriting the legacy file. Subsequent starts use TOML. Duplicate triggers,<br>
+duplicate command lines (multiple bindings for one command cannot be represented<br>
+by this increment), unknown commands, empty legacy triggers, and invalid triggers<br>
+are reported explicitly, and automatic migration/saving is disabled until<br>
+repaired. A conflicting later legacy line never overrides the earlier command.</p>
+<h2 id="deliberately-deferred">Deliberately deferred</h2>
+<p>There is no language server in this iteration. The repository does not provide<br>
+a real Cwhip LSP server, and the current process APIs do not yet constitute a<br>
+complete JSON-RPC client with correct Content-Length framing, split-message<br>
+handling, ordered writes, request correlation, cancellation, notifications,<br>
+and shutdown. The editor does not mislabel compiler checking as LSP. A future<br>
+LSP client should be a separate configurable component attached to the document<br>
+and buffer APIs.</p>
+<p>Projects deliberately do not include unsaved-buffer recovery (dirty edits are<br>
+only kept in memory), build commands, LSP configuration, plugins, Git<br>
+integration or project trust. Persistent recent history, native per-tab close glyphs, and an<br>
+extension/plugin runtime, and a configurable toolbar are not included yet. The<br>
+dialog controls and menu/shortcut commands use the same editor actions, so a<br>
+future toolbar can reuse those actions.<br>
+Any future in-process plugins should be treated as trusted code.</p>
+<p>Appearance, Files/session, Build, and LSP preference categories and<br>
+file-type overrides are future work; no placeholder pages are installed.</p>
+<p>Run the editor-specific headless cases and existing GTK integration checks:</p>
+<pre><code>
+ctest --test-dir build-cwhip \
+  -R &#x27;^(cwhip_editor_binary|cwhip_editor_shortcuts|cwhip_editor_preferences|cwhip_editor_dialogs|cwhip_example_editor_cwhip_editor\\.cw|cwhip_editor_default_shortcuts|cwhip_editor_project|cwhip_project_explorer|cwhip_gtk|cwhip_gtk_bindings)$&#x27; \
+  --output-on-failure
+</code></pre>
+</main>
+<footer>
+  <p>Cwhip. Documentation source of truth is the repository.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

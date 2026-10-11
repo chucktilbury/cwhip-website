@@ -1,0 +1,37 @@
+var hierarchy =
+[
+    [ "anonymous_namespace{main.cpp}::BuildContext", "structanonymous__namespace_02main_8cpp_03_1_1_build_context.html", null ],
+    [ "CwhipAsyncProcess", "struct_cwhip_async_process.html", null ],
+    [ "CwhipCallback", "struct_cwhip_callback.html", null ],
+    [ "CwhipCallbackContext", "struct_cwhip_callback_context.html", null ],
+    [ "CwhipCallbackTransfer", "struct_cwhip_callback_transfer.html", null ],
+    [ "CwhipConditionObject", "struct_cwhip_condition_object.html", null ],
+    [ "CwhipDemoNative", "struct_cwhip_demo_native.html", null ],
+    [ "CwhipExceptionFrame", "struct_cwhip_exception_frame.html", null ],
+    [ "CwhipMutexObject", "struct_cwhip_mutex_object.html", null ],
+    [ "CwhipProcess", "struct_cwhip_process.html", null ],
+    [ "CwhipProcessEvent", "struct_cwhip_process_event.html", null ],
+    [ "CwhipRuntimeException", "struct_cwhip_runtime_exception.html", null ],
+    [ "CwhipSemaphoreObject", "struct_cwhip_semaphore_object.html", null ],
+    [ "CwhipStringObject", "struct_cwhip_string_object.html", null ],
+    [ "CwhipThreadHandle", "struct_cwhip_thread_handle.html", null ],
+    [ "CwhipThreadRegistration", "struct_cwhip_thread_registration.html", null ],
+    [ "CwhipThreadStartArgs", "struct_cwhip_thread_start_args.html", null ],
+    [ "CwhipTraceEntry", "struct_cwhip_trace_entry.html", null ],
+    [ "CwhipTraceFrame", "struct_cwhip_trace_frame.html", null ],
+    [ "CwhipTraceSnapshot", "struct_cwhip_trace_snapshot.html", null ],
+    [ "cwhip::anonymous_namespace{PackageRegistry.cpp}::Resolver::Graph", "structcwhip_1_1anonymous__namespace_02_package_registry_8cpp_03_1_1_resolver_1_1_graph.html", null ],
+    [ "HeapNode", "struct_heap_node.html", null ],
+    [ "InlineCStringBuffer", "struct_inline_c_string_buffer.html", null ],
+    [ "anonymous_namespace{main.cpp}::LinkInputs", "structanonymous__namespace_02main_8cpp_03_1_1_link_inputs.html", null ],
+    [ "cwhip::anonymous_namespace{ModuleRegistry.cpp}::ModuleSource", "structcwhip_1_1anonymous__namespace_02_module_registry_8cpp_03_1_1_module_source.html", null ],
+    [ "anonymous_namespace{main.cpp}::PhaseTimer", "classanonymous__namespace_02main_8cpp_03_1_1_phase_timer.html", null ],
+    [ "cwhip::anonymous_namespace{ModuleRegistry.cpp}::RegistryEntry", "structcwhip_1_1anonymous__namespace_02_module_registry_8cpp_03_1_1_registry_entry.html", null ],
+    [ "cwhip::anonymous_namespace{PackageRegistry.cpp}::Resolver", "classcwhip_1_1anonymous__namespace_02_package_registry_8cpp_03_1_1_resolver.html", null ],
+    [ "RetainedExceptionMessage", "struct_retained_exception_message.html", null ],
+    [ "cwhip::anonymous_namespace{PackageIntegrity.cpp}::Sha256", "classcwhip_1_1anonymous__namespace_02_package_integrity_8cpp_03_1_1_sha256.html", null ],
+    [ "cwhip::anonymous_namespace{PackageRegistry.cpp}::Version", "structcwhip_1_1anonymous__namespace_02_package_registry_8cpp_03_1_1_version.html", null ],
+    [ "ResolvedPackage", null, [
+      [ "cwhip::anonymous_namespace{PackageRegistry.cpp}::PackageManifest", "structcwhip_1_1anonymous__namespace_02_package_registry_8cpp_03_1_1_package_manifest.html", null ]
+    ] ]
+];

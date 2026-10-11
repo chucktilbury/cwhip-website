@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Package manifests and reproducible projects — Cwhip</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html">cwhip</a>
+  <nav class="main-nav">
+    <a href="index.html">Home</a>
+    <a href="docs.html">Documentation</a>
+    <a href="about-site.html">About this site</a>
+    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
+  </nav>
+</header>
+<main>
+<h1 id="package-manifests-and-reproducible-projects">Package manifests and reproducible projects</h1>
+<p><code>cwhip-pkg</code> manages packages; <code>cwhip</code> compiles installed source without accessing<br>
+the network. See <a href="INSTALLATION.html#project-package-manager-cwhip-pkg">installation</a><br>
+for the common <code>init</code>, <code>add</code>, and <code>install</code> workflow.</p>
+<h2 id="project-manifest-cwhip-pkg-toml">Project manifest: <code>cwhip-pkg.toml</code></h2>
+<p>Schema 1 is human-readable TOML with exact SemVer pins. Only direct<br>
+dependencies belong in <code>[dependencies.NAME]</code>; dependency order is irrelevant.<br>
+The GitHub repository identity is explicit, not inferred from a package name.</p>
+<pre><code>
+schema = 1
+
+[dependencies.geometry]
+repo = &quot;your-org/geometry&quot;
+version = &quot;=1.2.3&quot;
+
+[sources]
+vectors = &quot;your-org/vectors&quot;
+</code></pre>
+<p>The repository names above are illustrative, not a public package catalog.<br>
+<code>version</code> supports only <code>=VERSION</code>, including explicit prereleases; ranges<br>
+are not supported. <code>cwhip-pkg add OWNER/REPO [VERSION] --yes</code> reads the package<br>
+name from the downloaded manifest and records a direct exact pin. Omitting<br>
+VERSION selects the highest stable SemVer tag at that time; subsequent installs<br>
+use the lock&#x27;s commit, not a fresh version selection.</p>
+<p><code>[sources]</code> is an optional explicit mapping for transitive names whose package<br>
+manifest lacks a source. A package may supply its own mapping; inconsistent<br>
+identities for the same name are errors, not priority-based guesses.<br>
+The shipped standard packages are locked locally during <code>init</code>; they are not<br>
+network dependencies and need no GitHub source mapping. Each bundled package<br>
+is pinned to its highest stable installed version; a prerelease-only bundled<br>
+package or an incompatible exact dependency on an older bundled version fails<br>
+explicitly rather than producing fallback arrays. <code>String</code> is the implicit<br>
+compiler prelude, not a package entry.</p>
+<p>Commit <code>cwhip-pkg.toml</code> and <code>cwhip-pkg.lock</code>. To change a direct pin, use <code>add</code>, or edit<br>
+the manifest, remove the stale lock, and resolve with <code>cwhip-pkg install --yes</code>.<br>
+<code>add</code> rejects an already stale lock before contacting any repository. The compiler<br>
+always reads the lock from the discovered source project; <code>-M</code> and<br>
+<code>CWHIP_MODULE_DIR</code> only add higher-priority package storage roots. A root can<br>
+satisfy a locked package only with the exact locked version, dependency edges,<br>
+and content hash. The lock remains the import allowlist. Legacy <code>modules/modules.toml</code>, registry,<br>
+and compatibility path workflows are removed; their configuration is not<br>
+imported or rewritten. Create a separate manifest/lock project and manually<br>
+declare dependencies with <code>cwhip-pkg</code>.</p>
+<h2 id="published-package-cwhip-package-toml">Published package: <code>cwhip-package.toml</code></h2>
+<p>Package directories have the shape <code>modules/NAME/VERSION/</code>:</p>
+<pre><code>
+[package]
+name = &quot;geometry&quot;
+version = &quot;1.2.3&quot;
+source = &quot;src/geometry.cw&quot;
+export = &quot;namespace:Geometry&quot;
+
+[dependencies]
+vectors = &quot;=0.4.0&quot;
+
+[sources]
+vectors = &quot;your-org/vectors&quot;
+
+[link]
+libraries = [&quot;geometry_native&quot;]
+library-paths = [&quot;lib&quot;]
+</code></pre>
+<p>The package name and export name must be non-keyword Cwhip identifiers.<br>
+<code>name</code> and <code>version</code> must match the installed directory names; a fetched tag<br>
+must match <code>version</code>. <code>source</code> must name a file within the package and cannot<br>
+be absolute or contain <code>..</code>. <code>export</code> is either <code>namespace:Name</code> or<br>
+<code>class:Name</code>, and that top-level definition must exist in the source.</p>
+<p>Dependencies are exact pins under <code>[dependencies]</code>. Every imported package in<br>
+package source must also be declared here. Optional <code>[sources]</code> entries must<br>
+name declared dependencies and use GitHub <code>OWNER/REPO</code>. An omitted repository<br>
+requires an explicit consuming-project mapping or an exact locally bundled<br>
+dependency; the installer never guesses where to download code.<br>
+The compiler accepts this same source-mapping table for installed and legacy<br>
+packages. Cycles, inconsistent pins, and inconsistent source identities fail.</p>
+<p>Optional <code>[link]</code> entries provide arrays of native library names (without a<br>
+<code>-l</code> prefix) and package-relative library directories. Native assets must<br>
+already be present; the installer never executes package build scripts.<br>
+Package installation rejects symbolic links and special files.</p>
+<pre><code>
+import geometry
+import geometry as G
+// test: {&quot;stdout&quot;: &quot;&quot;, &quot;fixture&quot;: &quot;geometry&quot;}
+
+start {
+    // Both bindings denote the declared namespace, not an extra package layer.
+    Geometry.Point point = Geometry.Point()
+    G.Point another = G.Point()
+}
+</code></pre>
+<p>The example assumes <code>namespace Geometry</code> exports a class <code>Point</code>.<br>
+Explicit aliases preserve the existing semantics. Without <code>as</code>, the binding<br>
+is the manifest&#x27;s declared export (<code>Geometry</code>), not the package identifier<br>
+(<code>geometry</code>). Colliding local/import bindings and conflicting package namespaces<br>
+are diagnosed. An exported class similarly binds its own name by default.</p>
+<h2 id="generated-graph-cwhip-pkg-lock">Generated graph: <code>cwhip-pkg.lock</code></h2>
+<p>Schema 1 locks every resolved node, including the bundled standard packages.<br>
+The following excerpt illustrates a node with one dependency; a real lock<br>
+also contains that dependency&#x27;s module entry and package table:</p>
+<pre><code>
+schema = 1
+manifest-sha256 = &quot;0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&quot;
+
+[modules]
+geometry = [&quot;1.2.3&quot;]
+vectors = [&quot;0.4.0&quot;]
+
+[packages.geometry]
+repo = &quot;your-org/geometry&quot;
+version = &quot;1.2.3&quot;
+ref = &quot;refs/tags/1.2.3&quot;
+commit = &quot;0123456789abcdef0123456789abcdef01234567&quot;
+sha256 = &quot;0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef&quot;
+dependencies = [&quot;vectors=0.4.0&quot;]
+</code></pre>
+<p><code>[modules]</code> contains exactly one version per node, not ordered fallback arrays.<br>
+Package tables store repository, tag ref, exact Git commit, content SHA256, and<br>
+exact graph edges. Local standard-package nodes use <code>builtin</code> for <code>repo</code>,<br>
+<code>ref</code>, and <code>commit</code>, with the same content checks. Tables and dependency lists<br>
+are generated deterministically. <code>manifest-sha256</code> hashes the raw manifest<br>
+bytes, so even a manual formatting edit makes an existing lock stale.</p>
+<p>Content hashing sorts regular files by relative POSIX path and hashes each<br>
+UTF-8 path, NUL byte, file contents, and NUL byte in that order. The <code>.git</code><br>
+directory is excluded; directories, timestamps, and file permissions are not<br>
+hashed. Symlinks and special files are rejected. Hashes detect stale/tampered<br>
+installed contents; they are not publisher signatures or proof that code is<br>
+safe. Review repositories before authorizing download or compiling their<br>
+native bindings.</p>
+<p><code>cwhip-pkg install --yes</code> verifies manifest freshness, schema, exact versions,<br>
+commit identities, edges, and content before restoring missing packages. It<br>
+does not overwrite mismatching existing directories. The compiler independently<br>
+checks lock structure/freshness and the hashes and declared edges of packages<br>
+used by the compilation. A changed bundled package therefore requires an<br>
+intentional lock regeneration, not silent acceptance.</p>
+<h2 id="network-consent-and-plans">Network consent and plans</h2>
+<p>No network operation starts without an explicit interactive confirmation or<br>
+<code>--yes</code>. Noninteractive calls without consent fail. The initial plan shows<br>
+known repositories before resolution, each declared transitive repository is<br>
+shown before contact, and a complete resolved plan precedes installation.<br>
+<code>--yes</code> explicitly opts into the graph&#x27;s declared repositories, not arbitrary<br>
+URL guessing. An unmapped dependency fails without contacting a guessed remote.</p>
+<p><code>--dry-run</code> displays known work without network or project writes.<br>
+<code>--dry-run --yes</code> permits temporary metadata downloads to discover the complete<br>
+graph, but does not install or change manifest/lock files. Resolution requires<br>
+reading package manifests, so a complete remote graph cannot be known offline<br>
+before the first authorized download.</p>
+<p>File updates are atomic individually and installation failures attempt rollback,<br>
+reporting rollback failures explicitly. The manifest, lock, and package tree<br>
+are not a crash-transactional database; do not run concurrent package mutations<br>
+or replace project directories while installation is running.</p>
+</main>
+<footer>
+  <p>Cwhip. Documentation source of truth is the repository.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

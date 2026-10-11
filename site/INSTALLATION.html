@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build and installation — Cwhip</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html">cwhip</a>
+  <nav class="main-nav">
+    <a href="index.html">Home</a>
+    <a href="docs.html">Documentation</a>
+    <a href="about-site.html">About this site</a>
+    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
+  </nav>
+</header>
+<main>
+<h1 id="build-and-installation">Build and installation</h1>
+<p>The compiler uses CMake and requires Clang on <code>PATH</code> to compile and link its<br>
+generated LLVM IR. The project uses C11 and C++17. Building and running<br>
+<code>cwhip-pkg</code> also requires Python 3.11 or newer; installing packages requires<br>
+<code>git</code>. A repository build stages<br>
+the compiler resources beside <code>bin/cwhip</code>, so the executable can run directly<br>
+from the source tree:</p>
+<pre><code>
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build -j4
+ctest --test-dir build --output-on-failure
+</code></pre>
+<p>The current native compiler/runtime target is POSIX (including <code>unistd.h</code><br>
+and pthreads); non-POSIX targets are not supported. CMake reports a missing<br>
+<code>unistd.h</code>, and generated inline-C compilation diagnoses any required target<br>
+header that Clang cannot find rather than silently omitting it.<br>
+Installed application resources include the public opaque C API<br>
+<code>include/cwhip/Stdlib.h</code> and the linked runtime archive; application developers<br>
+do not need runtime implementation source. See<br>
+<a href="STDLIB.html#inline-c-api">the inline C API</a> for supported bindings.</p>
+<p>The CMake project, compiler executable, and compiler target are <code>cwhip</code>.<br>
+Language source inputs must use the <code>.cw</code> extension.</p>
+<p>The root build is the recommended build. The <code>include/</code>, <code>src/</code>, and <code>tests/</code><br>
+directories also have component <code>CMakeLists.txt</code> files; standalone<br>
+configuration is optional. To build only the compiler outside the repository&#x27;s<br>
+in-tree build directory:</p>
+<pre><code>
+cmake -S src -B /tmp/cwhip-compiler-build -DCWHIP_GTK=OFF -DCWHIP_GTK_SOURCEVIEW=OFF
+cmake --build /tmp/cwhip-compiler-build
+</code></pre>
+<p><code>tests/functional/</code> contains fixtures, not a separate buildable component.<br>
+The root build places the compiler and test executables in <code>bin/</code> and the<br>
+front-end archive in <code>lib/libcwhip_frontend.a</code>.</p>
+<h2 id="cwhip-editor-and-optional-gtk-packages">Cwhip Editor and optional GTK packages</h2>
+<p>On a fresh configuration, CMake detects <code>pkg-config</code>, GTK 4.10+ and GtkSourceView 5<br>
+development files and defaults <code>CWHIP_GTK</code> and <code>CWHIP_GTK_SOURCEVIEW</code> to the<br>
+available support. On Debian/Ubuntu the GUI development packages are<br>
+<code>pkg-config libgtk-4-dev libgtksourceview-5-dev</code>. No packages are installed<br>
+automatically. An ordinary compiler build (including <code>--target cwhip</code>) builds<br>
+the enabled native package archives and stages their sources, manifests and<br>
+language resources. GTK and GtkSourceView link only into importing applications,<br>
+never into <code>cwhip</code> or non-GUI programs.</p>
+<p>With those development dependencies installed, configure once and build Cwhip Editor:</p>
+<pre><code>
+cmake -S . -B build -G &quot;Unix Makefiles&quot; -DCMAKE_BUILD_TYPE=Debug
+make -C build -j4 cwhip_editor
+./bin/cwhip-editor file1.cw file2.cw
+</code></pre>
+<p>From inside <code>build/</code>, use <code>make cwhip_editor</code>. The generator-independent equivalent is<br>
+<code>cmake --build build --target cwhip_editor -j4</code>. This works on a fresh<br>
+build without first building the compiler. The output is<br>
+<code>&lt;source&gt;/bin/cwhip-editor</code> by default, or<br>
+<code>&lt;CWHIP_STAGE_PREFIX&gt;/bin/cwhip-editor</code> with a custom staging prefix;<br>
+standalone <code>src/</code> builds use their build directory as the prefix. The target<br>
+generates a private source project and package lock under the build directory,<br>
+using only this build&#x27;s staged packages, not user HOME packages or environment<br>
+resource overrides. Source/include, native archive, manifest, builtin and<br>
+language-resource changes rebuild it; unchanged builds do not recompile it.<br>
+The editor is built on demand, not by the default <code>all</code> target, and is not<br>
+installed by <code>cmake --install</code>. See <a href="CWHIP-EDITOR.html">Cwhip Editor</a>.</p>
+<p>For a deliberate compiler-only configuration, including on machines without<br>
+GUI development files:</p>
+<pre><code>
+cmake -S . -B build-compiler -DCWHIP_GTK=OFF -DCWHIP_GTK_SOURCEVIEW=OFF
+cmake --build build-compiler --target cwhip -j4
+</code></pre>
+<p><code>cwhip_editor</code> then fails with an explicit dependency/configuration diagnostic rather<br>
+than claiming a successful editor build. Explicit <code>ON</code> options require their<br>
+development dependencies and fail configuration if missing;<br>
+<code>CWHIP_GTK_SOURCEVIEW=ON</code> requires <code>CWHIP_GTK=ON</code>. Defaults are cached: after<br>
+installing GUI dependencies into an existing compiler-only configuration,<br>
+reconfigure with both options <code>ON</code>.</p>
+<p>With GTK enabled and <code>BUILD_TESTING=ON</code> (the root-build default), headless GUI<br>
+tests default to enabled when Xvfb and <code>dbus-daemon</code> are found<br>
+(<code>xvfb dbus-daemon</code> on Debian/Ubuntu). Otherwise configuration explicitly<br>
+reports that GUI tests are disabled; this does not block building Cwhip Editor.<br>
+Set <code>-DCWHIP_GTK_TESTS=ON</code> to require these tools and fail if missing, or use<br>
+<code>-DBUILD_TESTING=OFF</code> to omit all tests. Enabled tests never silently skip<br>
+missing fixtures. Xvfb can be selected with<br>
+<code>-DCWHIP_XVFB_EXECUTABLE=/absolute/path/to/Xvfb</code>. Each GUI test uses a private<br>
+display and session bus.</p>
+<p>Disabled packages are absent from staging and installation. Use separate<br>
+<code>CWHIP_STAGE_PREFIX</code> directories for simultaneous different configurations.<br>
+The enabled <code>gtk/0.1.0</code> manifest carries GtkSourceView link metadata when<br>
+appropriate. See <a href="GTK.html">GTK.md</a> for linkage, activation and ownership.</p>
+<h2 id="install-layout-and-relocation">Install layout and relocation</h2>
+<p>Configure the installation prefix, build, and install:</p>
+<pre><code>
+cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/usr/local
+cmake --build build
+cmake --install build
+</code></pre>
+<p>For a staged package or image, use <code>DESTDIR</code>:</p>
+<pre><code>
+DESTDIR=/tmp/stage cmake --install build
+</code></pre>
+<p> CMake&#x27;s <code>GNUInstallDirs</code> control the destinations. The installed tree contains<br>
+the <code>cwhip</code> executable in<br>
+<code>${CMAKE_INSTALL_BINDIR}</code>, the runtime archive in<br>
+<code>${CMAKE_INSTALL_LIBDIR}/cwhip/</code>, runtime headers in<br>
+<code>${CMAKE_INSTALL_INCLUDEDIR}/cwhip/</code>, the String builtin in<br>
+<code>${CMAKE_INSTALL_DATADIR}/cwhip/builtin/</code>, standard modules in<br>
+<code>${CMAKE_INSTALL_DATADIR}/cwhip/modules/</code>, and documentation in<br>
+<code>${CMAKE_INSTALL_DOCDIR}</code> plus <code>${CMAKE_INSTALL_MANDIR}/man1/cwhip.1</code>.<br>
+The documentation install also preserves the repository-relative<br>
+<code>doc/</code>, <code>tests/</code>, and <code>stdlib/</code> indexes and references.<br>
+Installation directories must remain inside <code>CMAKE_INSTALL_PREFIX</code>.</p>
+<p>The compiler derives resources relative to its executable and the installation<br>
+prefix; an installed tree can be moved as a unit. Runtime, header, builtin,<br>
+standard-module and user-module paths use the <code>cwhip/</code> directory. Resource lookup can be<br>
+overridden with <code>CWHIP_RUNTIME_DIR</code>, <code>CWHIP_INCLUDE_DIR</code>, <code>CWHIP_BUILTIN_DIR</code>, or<br>
+<code>CWHIP_STDLIB_MODULE_DIR</code> individually, or with <code>CWHIP_HOME</code> for the prefix.<br>
+<code>CC</code> selects the compiler-driver executable in place of the configured Clang<br>
+driver. The editor writes preferences to <code>$XDG_CONFIG_HOME/cwhip/settings.toml</code><br>
+(or <code>~/.config/cwhip/settings.toml</code>) and project metadata to <code>.cwhip/</code>.<br>
+<code>cwhip-shortcuts.conf</code> in the working directory remains an optional shortcut<br>
+import source. Older product-named settings, shortcut, and project metadata<br>
+paths are ignored; they are left untouched and are not migrated. Copy any<br>
+settings you want to retain into the new paths yourself.<br>
+User preferences previously read by <code>cwhip-pkg env</code> from<br>
+<code>$XDG_CONFIG_HOME/cwhip/preferences.toml</code> or <code>~/.config/cwhip/preferences.toml</code><br>
+remain at those locations. Use <code>cwhip --print-paths</code> to inspect the resolved executable, resources,<br>
+every package root and its precedence, project lock location, and Clang executable.</p>
+<p>The former <code>prelude/</code> source directory, <code>share/cwhip/prelude/</code> resource path,<br>
+and <code>CWHIP_PRELUDE_DIR</code> override have been replaced by <code>builtin/</code>,<br>
+<code>share/cwhip/builtin/</code>, and <code>CWHIP_BUILTIN_DIR</code>. No legacy path fallback or<br>
+environment alias is supported: rebuild and reinstall the compiler and its<br>
+resources together, and update any resource overrides. <code>CWHIP_BUILTIN_DIR</code><br>
+names the directory containing <code>String.cw</code>, not a project package root.</p>
+<h2 id="breaking-path-changes">Breaking path changes</h2>
+<p>Use the <code>cwhip-pkg</code> command with a <code>cwhip-pkg.toml</code> manifest and<br>
+<code>cwhip-pkg.lock</code>; published package directories use <code>cwhip-package.toml</code>.<br>
+Source inputs use <code>.cw</code>, public runtime headers are under <code>include/cwhip/</code>,<br>
+and resource overrides use <code>CWHIP_*</code> variables. Editor preferences are under<br>
+<code>cwhip/settings.toml</code>, and editor project metadata is under <code>.cwhip/</code>.<br>
+These names do not alias earlier product paths. Existing manifests, settings,<br>
+shortcuts, projects, installed resources, and native libraries are neither<br>
+deleted nor rewritten by the compiler or editor; they are not discovered or<br>
+migrated automatically.</p>
+<h2 id="project-module-search">Project module search</h2>
+<p>The compiler discovers project configuration separately from package storage.<br>
+The project root is the nearest ancestor of the first Cwhip source input<br>
+containing <code>cwhip-pkg.toml</code> or a <code>modules</code> directory; without a marker it is the<br>
+source parent. With no source input, discovery starts at the current directory.<br>
+This source-based discovery is the same for relative and absolute source paths.<br>
+The manifest and adjacent <code>cwhip-pkg.lock</code> remain at that root regardless of<br>
+package-root overrides.</p>
+<p>Package imports use ordered first-match lookup through these roots:</p>
+<ol>
+<li><code>-M DIR</code>/<code>--module-dir DIR</code>, when provided.</li>
+<li><code>&lt;project-root&gt;/modules</code>.</li>
+<li><code>CWHIP_MODULE_DIR</code>, when set.</li>
+<li>The user package root <code>&lt;config-home&gt;/cwhip/modules</code>, normally</li>
+</ul>
+<p>   <code>~/.config/cwhip/modules</code>. If <code>XDG_CONFIG_HOME</code> is set, it is used as<br>
+   <code>&lt;XDG_CONFIG_HOME&gt;/cwhip/modules</code> and must be absolute.</p>
+<ol>
+<li>Standard modules shipped with the compiler, normally</li>
+</ul>
+<p>   <code>&lt;prefix&gt;/share/cwhip/modules</code>, configurable with <code>CWHIP_STDLIB_MODULE_DIR</code>.</p>
+<p>The first root containing a package shadows lower-priority roots, and version<br>
+selection occurs only among versions in that root. Project and home roots are<br>
+optional fallbacks when missing; explicit <code>-M</code> and <code>CWHIP_MODULE_DIR</code> roots must<br>
+exist for compilation. <code>-M</code> and <code>CWHIP_MODULE_DIR</code> add storage roots; they never<br>
+move or replace the discovered project&#x27;s manifest or lock. <code>-p</code>/<code>--path</code> sets<br>
+the separate textual <code>include</code> search path. Package layout and APIs are<br>
+described in the <a href="STDLIB.html">standard library docs</a> and<br>
+<a href="README.html"><code>stdlib/README.md</code></a>; exact CLI behavior is in<br>
+<a href="cwhip.1">cwhip(1)</a>.</p>
+<h3 id="locked-project-dependencies">Locked project dependencies</h3>
+<p>New projects use <code>cwhip-pkg.toml</code> for direct dependencies and generated<br>
+<code>cwhip-pkg.lock</code> for the complete exact graph. The compiler checks the lock schema,<br>
+manifest fingerprint, dependency pins, and hashes of packages used by the<br>
+compilation. It never accesses the network. Missing, stale, or invalid locks<br>
+are errors, not invitations to fall back to another version or root. A storage<br>
+override can satisfy a lock only when the locked package name, exact version,<br>
+dependency edges, and content hash match; a conflicting or invalid higher<br>
+root is reported rather than bypassed. Imports not listed in the lock are<br>
+rejected. <code>-M</code> and <code>CWHIP_MODULE_DIR</code> do not select another project&#x27;s policy.<br>
+See <a href="PACKAGES.html">the package schema</a>.</p>
+<p>The previous <code>--package-path</code>, <code>CWHIP_PACKAGE_PATH</code>, <code>CWHIP_MODULE_REGISTRY</code>,<br>
+<code>./cwhip-modules.tsv</code>, and <code>modules/modules.toml</code> lookup/policy mechanisms have<br>
+been removed. They have no compatibility aliases or fallback behavior. Legacy<br>
+policy files are not imported, changed, or automatically migrated. To adopt the<br>
+new package workflow, create a separate project with <code>cwhip-pkg init</code>, then<br>
+declare and install dependencies with <code>cwhip-pkg add</code>/<code>cwhip-pkg install</code>.<br>
+<code>cwhip --print-paths</code> reports the project lock and every applicable package<br>
+root with its origin and order.</p>
+<h2 id="project-package-manager-cwhip-pkg">Project package manager (<code>cwhip-pkg</code>)</h2>
+<p><code>cwhip-pkg</code> is a small project manager and GitHub package installer. The<br>
+compiler remains responsible for compiling and building programs; <code>cwhip-pkg</code><br>
+does not run programs or implement compiler build logic. It is installed beside<br>
+<code>cwhip</code> and uses the standard modules shipped with that same installation.</p>
+<p>Start a project from its root:</p>
+<pre><code>
+mkdir hello-cwhip
+cd hello-cwhip
+cwhip-pkg init
+cwhip-pkg add OWNER/REPO --yes
+cwhip path/to/app.cw
+</code></pre>
+<p><code>cwhip-pkg init [PROJECT_DIR]</code> creates <code>cwhip-pkg.toml</code>, <code>cwhip-pkg.lock</code>, and the<br>
+<code>modules</code> directory, locking the installed standard modules locally without<br>
+network access. It refuses to overwrite existing configuration. The compiler&#x27;s<br>
+<code>String</code> builtin/runtime is available by default; it is not an ordinary<br>
+imported module and is not listed in the lockfile&#x27;s module allowlist or packages.</p>
+<p><code>cwhip-pkg add OWNER/REPO [VERSION] --yes</code> obtains a package from that GitHub<br>
+repository, using Git&#x27;s configured authentication for private repositories<br>
+that the user can access. With no version it picks the highest stable SemVer<br>
+tag; with a version it checks out that exact SemVer tag (including a<br>
+prerelease, if requested). It validates<br>
+<code>cwhip-package.toml</code> and the package source, resolves all exact transitive<br>
+dependencies, and installs into <code>modules/&lt;package-name&gt;/&lt;version&gt;/</code>. It saves<br>
+the direct dependency in <code>cwhip-pkg.toml</code> and generates the complete graph in<br>
+<code>cwhip-pkg.lock</code>, including repository, tag, commit, content digest, and edges.<br>
+Existing versions are never overwritten: different contents at an existing<br>
+destination are an integrity error. Run <code>cwhip-pkg list</code> to inspect selections.</p>
+<p>GitHub <code>OWNER/REPO</code> is a direct repository shortcut, not a package catalog:<br>
+there is no central index or guessed repository lookup. A dependency&#x27;s<br>
+repository must be declared in its package&#x27;s <code>[sources]</code> table or explicitly<br>
+mapped in the project&#x27;s <code>[sources]</code> table. Bundled packages are resolved<br>
+locally. Missing mappings and conflicting exact pins fail explicitly. Ranges,<br>
+branches, arbitrary URLs, install scripts, and automatic builds are not<br>
+supported.</p>
+<p>Before network access, <code>cwhip-pkg</code> prints the requested plan and requires explicit<br>
+confirmation, or <code>--yes</code> for noninteractive use. Each declared repository is<br>
+shown before it is contacted; <code>--yes</code> authorizes the declared transitive<br>
+repositories too. Without consent, redirected/noninteractive input fails<br>
+without fetching. <code>--dry-run</code> shows the known plan without network access;<br>
+<code>--dry-run --yes</code> may fetch metadata and resolve the full graph, but does not<br>
+install or modify project files. A full resolved graph is printed before<br>
+installation. Review untrusted repositories before granting consent: fetched<br>
+source can contain native bindings used during later compilation.</p>
+<p><code>cwhip-pkg install --yes</code> restores a committed lockfile&#x27;s exact commits and<br>
+verifies hashes, rather than trusting potentially moved tags. With no lock it<br>
+resolves the direct manifest. Commit both manifest and lock; do not hand-edit<br>
+the lock or maintain transitive version arrays. <code>add</code>, <code>install</code>, and <code>list</code><br>
+locate the project from nested working directories. After <code>add</code> or <code>install</code>,<br>
+ordinary <code>cwhip src/nested/app.cw</code> is compile-ready with no environment eval.<br>
+Legacy projects without <code>cwhip-pkg.toml</code> retain their old policy and explicit<br>
+dependency installation contract.</p>
+<p><code>cwhip-pkg env</code> prints POSIX shell exports; it does not modify the parent shell.<br>
+It reads optional user preferences from<br>
+<code>$XDG_CONFIG_HOME/cwhip/preferences.toml</code>, or<br>
+<code>~/.config/cwhip/preferences.toml</code> when <code>XDG_CONFIG_HOME</code> is unset. Create the<br>
+file yourself if desired; only <code>[environment]</code> string values are supported:</p>
+<pre><code>
+[environment]
+CC = &quot;clang&quot;
+MY_BUILD_SETTING = &quot;debug&quot;
+</code></pre>
+<p>Then <code>eval &quot;$(cwhip-pkg env)&quot;</code> applies those values in the current shell. An<br>
+alternate existing file can be selected with <code>cwhip-pkg env --preferences FILE</code>;<br>
+<code>cwhip-pkg</code> never creates or edits preference files. Environment names must be<br>
+valid shell variable names. Package lookup needs no activation: source-based<br>
+project discovery works from nested directories and for absolute source paths.<br>
+User packages installed at <code>&lt;config-home&gt;/cwhip/modules</code> are searched after<br>
+project packages and before installation defaults.</p>
+</main>
+<footer>
+  <p>Cwhip. Documentation source of truth is the repository.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

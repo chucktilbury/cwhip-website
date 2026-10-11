@@ -1,0 +1,10 @@
+<map id="cwhip_stdio_write_bytes" name="cwhip_stdio_write_bytes">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,31,188,56"/>
+<area shape="rect" id="Node000002" href="$_runtime_o_s_8c.html#a37b47635e6fad311dd091b6227725e8c" title=" " alt="" coords="392,5,575,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="188,35,378,22,378,28,188,40"/>
+<area shape="rect" id="Node000003" href="$_runtime_o_s_8c.html#a74185a35aa71dec968b5df70e565c781" title=" " alt="" coords="236,56,344,81"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="189,53,222,57,222,62,188,58"/>
+<area shape="poly" id="edge4_Node000003_Node000002" title=" " alt="" coords="339,53,420,32,422,37,340,58"/>
+<area shape="rect" id="Node000004" href="$_runtime_o_s_8c.html#a8e8cf6efb5c8a7c6b619826584dd417a" title=" " alt="" coords="405,55,562,95"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="345,68,391,69,391,75,344,73"/>
+</map>

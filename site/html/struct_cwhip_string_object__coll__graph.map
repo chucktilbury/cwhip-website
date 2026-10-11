@@ -1,0 +1,9 @@
+<map id="CwhipStringObject" name="CwhipStringObject">
+<area shape="rect" id="Node000001" title=" " alt="" coords="169,93,312,119"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,5,185,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="123,37,169,67,216,91,213,96,166,72,120,41"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="210,5,271,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="243,45,243,93,238,93,238,45"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="296,5,409,31"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="331,41,293,71,259,95,256,91,290,67,327,37"/>
+</map>

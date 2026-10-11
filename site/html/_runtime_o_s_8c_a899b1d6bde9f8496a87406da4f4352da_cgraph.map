@@ -1,0 +1,11 @@
+<map id="cwhip_time_sleep_milliseconds" name="cwhip_time_sleep_milliseconds">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,95,233,121"/>
+<area shape="rect" id="Node000002" href="$_runtime_o_s_8c.html#a8e8cf6efb5c8a7c6b619826584dd417a" title=" " alt="" coords="301,5,458,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="159,93,302,47,303,52,161,98"/>
+<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#a1706097f4f239b7a1375a98a0b51ffb4" title=" " alt="" coords="281,70,477,95"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="233,94,268,91,268,96,234,100"/>
+<area shape="rect" id="Node000004" href="$_runtime_gc_8c.html#ae45731dcf4b41f28c70ea6a875b7516f" title=" " alt="" coords="281,119,477,145"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="234,116,268,119,268,124,233,121"/>
+<area shape="rect" id="Node000005" href="$_runtime_o_s_8c.html#a37b47635e6fad311dd091b6227725e8c" title=" " alt="" coords="288,169,471,194"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="163,118,282,153,316,163,315,168,281,159,161,123"/>
+</map>

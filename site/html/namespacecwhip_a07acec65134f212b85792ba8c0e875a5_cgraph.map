@@ -1,0 +1,14 @@
+<map id="cwhip::processResourcePaths" name="cwhip::processResourcePaths">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,95,220,121"/>
+<area shape="rect" id="Node000002" href="$namespacecwhip.html#a7451d97ed341405dbd2feac70dea03a5" title=" " alt="" coords="287,5,464,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="151,93,267,55,292,47,294,52,269,60,153,98"/>
+<area shape="rect" id="Node000003" href="$namespacecwhip.html#aecfa528e8b536ecec1f2310a31077441" title=" " alt="" coords="268,70,483,95"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="220,95,254,92,255,97,220,100"/>
+<area shape="rect" id="Node000004" href="$namespacecwhip.html#a4e43352f896ec37a62bebc4e2f7ff66e" title=" " alt="" coords="549,95,751,121"/>
+<area shape="poly" id="edge4_Node000001_Node000004" title=" " alt="" coords="220,105,535,105,535,111,220,111"/>
+<area shape="rect" id="Node000005" href="$namespacecwhip.html#a75450182775bd7289ad72a0cd5b24461" title=" " alt="" coords="269,171,481,197"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="158,118,318,165,317,170,157,123"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="483,90,536,95,535,100,483,95"/>
+<area shape="rect" id="Node000006" href="$namespacecwhip.html#a68fcf74234239351c39ff3308fa5907d" title=" " alt="" coords="531,171,769,197"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="481,181,517,181,517,187,481,187"/>
+</map>

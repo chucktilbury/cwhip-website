@@ -1,0 +1,25 @@
+<map id="/home/chuck/Src/cwhip/src/CodeGenerator.cpp" name="/home/chuck/Src/cwhip/src/CodeGenerator.cpp">
+<area shape="rect" id="Node000001" title="Stable heap&#45;object layout and LLVM IR for the prototype class subset." alt="" coords="772,5,947,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,93,196,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="772,38,210,96,210,91,772,33"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="221,93,399,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="772,42,404,94,403,89,771,36"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="424,93,585,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="775,48,570,93,569,88,774,43"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="610,93,695,119"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="811,48,697,91,695,86,809,43"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="720,93,801,119"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="837,48,788,87,785,82,834,43"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="826,93,893,119"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="862,46,862,79,857,79,857,46"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="917,93,983,119"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="883,44,928,82,924,86,880,48"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="1007,93,1082,119"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="905,43,1006,85,1004,90,903,48"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="1106,93,1181,119"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="928,43,1094,88,1092,93,927,48"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="1205,93,1292,119"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="947,41,1192,91,1191,96,946,47"/>
+<area shape="rect" id="Node000012" title=" " alt="" coords="1316,93,1376,119"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="947,34,1109,56,1303,91,1302,96,1108,61,947,39"/>
+</map>

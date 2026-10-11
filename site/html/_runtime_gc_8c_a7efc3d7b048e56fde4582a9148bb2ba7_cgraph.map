@@ -1,0 +1,13 @@
+<map id="raise_exception" name="raise_exception">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,55,131,80"/>
+<area shape="rect" id="Node000002" href="$_runtime_gc_8c.html#ac8956a330d139f4ac90573d12a3d174b" title=" " alt="" coords="402,5,513,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="117,52,178,39,289,26,388,19,388,24,289,31,179,45,118,57"/>
+<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#a67572d12ca2bb3c26bab234aa9345167" title=" " alt="" coords="380,104,535,129"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="118,77,179,90,276,102,366,109,366,115,275,107,178,95,117,83"/>
+<area shape="rect" id="Node000004" href="$_runtime_gc_8c.html#a627a36a7a290a999c27a4f7d92e35ff4" title=" " alt="" coords="179,55,332,80"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="131,65,165,65,165,70,131,70"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="307,52,391,31,392,37,309,57"/>
+<area shape="poly" id="edge5_Node000004_Node000003" title=" " alt="" coords="309,77,392,98,391,103,307,83"/>
+<area shape="rect" id="Node000005" href="$_runtime_gc_8c.html#a43c3b9dd3e0678e816ce51be2c1e4ec0" title=" " alt="" coords="411,55,503,80"/>
+<area shape="poly" id="edge6_Node000004_Node000005" title=" " alt="" coords="332,65,398,65,398,70,332,70"/>
+</map>

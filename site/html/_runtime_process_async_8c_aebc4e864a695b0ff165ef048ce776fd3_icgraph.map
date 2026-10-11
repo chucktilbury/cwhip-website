@@ -1,0 +1,7 @@
+<map id="drain_stream" name="drain_stream">
+<area shape="rect" id="Node000001" title=" " alt="" coords="363,13,471,38"/>
+<area shape="rect" id="Node000002" href="$_runtime_process_async_8c.html#a86caac42bd6c2771ebf3ef7f3c4e40ac" title=" " alt="" coords="216,13,315,38"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="349,28,315,28,315,23,349,23"/>
+<area shape="rect" id="Node000003" href="$_runtime_process_async_8c.html#a2d00f2e7ead01f9237265c730fc4a2e0" title=" " alt="" coords="5,5,168,45"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="202,28,168,28,168,23,202,23"/>
+</map>

@@ -1,0 +1,7 @@
+<map id="CwhipTraceEntry" name="CwhipTraceEntry">
+<area shape="rect" id="Node000001" title=" " alt="" coords="45,137,175,163"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,5,105,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="68,42,108,136,103,138,63,44"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="129,5,203,31"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="163,45,154,78,139,115,123,138,118,135,134,112,149,77,158,43"/>
+</map>

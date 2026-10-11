@@ -1,0 +1,10 @@
+<map id="cwhip_net_server_accept" name="cwhip_net_server_accept">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,70,192,95"/>
+<area shape="rect" id="Node000002" href="$_runtime_o_s_8c.html#a8e8cf6efb5c8a7c6b619826584dd417a" title=" " alt="" coords="240,5,397,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="148,67,228,46,229,51,149,73"/>
+<area shape="rect" id="Node000003" href="$_runtime_o_s_8c.html#a37b47635e6fad311dd091b6227725e8c" title=" " alt="" coords="445,95,628,121"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="192,85,431,99,431,105,192,91"/>
+<area shape="rect" id="Node000004" href="$_runtime_stdlib_8c.html#ab71952b1c93eb88793332bc28cabd4a9" title=" " alt="" coords="277,121,361,146"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="155,93,264,118,263,123,154,98"/>
+<area shape="poly" id="edge4_Node000004_Node000003" title=" " alt="" coords="361,126,431,118,432,123,361,131"/>
+</map>

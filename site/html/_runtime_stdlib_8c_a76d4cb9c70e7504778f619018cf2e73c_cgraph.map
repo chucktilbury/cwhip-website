@@ -1,0 +1,13 @@
+<map id="cwhip_net_socket_send" name="cwhip_net_socket_send">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,21,180,46"/>
+<area shape="rect" id="Node000002" href="$_runtime_o_s_8c.html#a37b47635e6fad311dd091b6227725e8c" title=" " alt="" coords="377,17,560,42"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="148,18,228,6,279,3,330,6,386,12,385,18,329,11,279,8,228,11,149,24"/>
+<area shape="rect" id="Node000003" href="$_runtime_stdlib_8c.html#aac9ce9c5061d4b4550cc330017efa144" title=" " alt="" coords="228,70,329,96"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="142,44,217,64,216,69,141,49"/>
+<area shape="rect" id="Node000005" href="$_runtime_stdlib_8c.html#ab71952b1c93eb88793332bc28cabd4a9" title=" " alt="" coords="237,21,321,46"/>
+<area shape="poly" id="edge5_Node000001_Node000005" title=" " alt="" coords="180,31,223,31,223,36,180,36"/>
+<area shape="poly" id="edge4_Node000003_Node000002" title=" " alt="" coords="323,68,377,52,408,43,410,49,378,58,325,73"/>
+<area shape="rect" id="Node000004" href="$_runtime_o_s_8c.html#a8e8cf6efb5c8a7c6b619826584dd417a" title=" " alt="" coords="390,67,547,107"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="330,81,376,82,376,88,330,87"/>
+<area shape="poly" id="edge6_Node000005_Node000002" title=" " alt="" coords="321,30,364,29,364,35,321,35"/>
+</map>

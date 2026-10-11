@@ -1,0 +1,7 @@
+<map id="cwhip_semaphore_wait" name="cwhip_semaphore_wait">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,31,180,56"/>
+<area shape="rect" id="Node000002" href="$_runtime_gc_8c.html#a1706097f4f239b7a1375a98a0b51ffb4" title=" " alt="" coords="228,5,424,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="180,31,214,27,215,33,181,36"/>
+<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#ae45731dcf4b41f28c70ea6a875b7516f" title=" " alt="" coords="228,55,424,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="181,50,215,53,214,59,180,55"/>
+</map>

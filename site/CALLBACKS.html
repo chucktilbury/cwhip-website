@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bound-method callbacks and the native bridge — Cwhip</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html">cwhip</a>
+  <nav class="main-nav">
+    <a href="index.html">Home</a>
+    <a href="docs.html">Documentation</a>
+    <a href="about-site.html">About this site</a>
+    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
+  </nav>
+</header>
+<main>
+<h1 id="bound-method-callbacks-and-the-native-bridge">Bound-method callbacks and the native bridge</h1>
+<p><code>callback&lt;R(P1,P2)&gt;</code> is a nullable, GC-managed callable value. <code>R</code> is a<br>
+declared return type (including <code>void</code>); <code>P1</code> and <code>P2</code> are declared parameter<br>
+types, without names. Zero parameters use <code>callback&lt;R()&gt;</code>. Nested callback<br>
+types are allowed. <code>any</code> and <code>type</code> descriptors are not supported in signatures.<br>
+<code>strg</code> and <code>String</code> denote the same signature type.</p>
+<pre><code>
+// test: {&quot;stdout&quot;: &quot;42&quot;}
+class Counter {
+    int base
+    Counter(int initial) { base = initial }
+    int add(int value) { return base + value }
+}
+class Apply {
+    int run(callback&lt;int(int)&gt; action, int value) { return action(value) }
+}
+start {
+    Counter counter(40)
+    callback&lt;int(int)&gt; action = counter.add
+    print(Apply().run(action, 2))
+}
+</code></pre>
+<p>Omitting <code>()</code> captures the bound method rather than calling it. Capture evaluates<br>
+the receiver exactly once and checks it for null and destruction. A callback<br>
+retains the receiver, including a secondary or virtual base view, through GC.<br>
+Dispatch uses the receiver&#x27;s virtual table, including overrides, rather than a<br>
+public method symbol. Explicit destruction still invalidates invocation; holding<br>
+a callback does not make destruction reversible. Cwhip invocation propagates<br>
+exceptions normally.</p>
+<p>Callbacks can be stored in locals and fields, passed, returned, and invoked.<br>
+Callback fields initially hold null; locals must be initialized before use, as<br>
+with other locals. Null assignment/comparison is allowed; null invocation raises<br>
+a catchable exception. Equality requires identical signatures and compares<br>
+callback <strong>value identity</strong>: copying a value preserves identity, but two separate<br>
+captures of the same method create different values. No signature covariance,<br>
+implicit conversion, or cast is provided. <code>type(action)</code> returns its canonical<br>
+signature (or <code>null</code> for a null value). <code>is</code> tests and checked casts involving<br>
+callbacks, printing callbacks, and storing them in dynamic lists/dicts are<br>
+diagnosed as unsupported. No anonymous functions, lexical closures, free-function<br>
+captures, destructor captures, or unbound member pointers are provided.</p>
+<p>An expected callback type selects an exactly matching method overload, including<br>
+parameter <strong>and return</strong> types. Overloaded receiving methods/constructors provide<br>
+candidate signature contexts; if more than one candidate remains viable, the<br>
+call is ambiguous. Access and inheritance-path checks apply at capture.</p>
+<h2 id="installed-c-api">Installed C API</h2>
+<p>Include <code>&lt;cwhip/Callbacks.h&gt;</code>. The header is installed and staged alongside<br>
+<code>&lt;cwhip/Stdlib.h&gt;</code>; its functions are supplied by <code>libcwhip_runtime</code>. Native-bound<br>
+callback parameters/results use a single opaque <code>void *</code>, just like managed<br>
+class references. Inline captures receive <code>void **</code>, the address of the<br>
+callback&#x27;s rooted Cwhip slot. Do not dereference a callback&#x27;s private layout or<br>
+call Cwhip method symbols from C.</p>
+<p><code>cwhip_callback_acquire(callback, signature)</code> creates a retained registration.<br>
+The signature string is <strong>canonical</strong>, e.g. <code>callback&lt;int(int)&gt;</code>,<br>
+<code>callback&lt;String(String)&gt;</code>, or <code>callback&lt;Model.Cell(Model.Cell)&gt;</code>, with no<br>
+spaces. Namespace/import aliases must be expanded to the declared namespace.<br>
+An incorrect signature is a fatal native-boundary error, not a function-pointer<br>
+cast. <code>cwhip_callback_signature(context)</code> returns the immutable canonical string.</p>
+<p><code>cwhip_callback_adapter(context)</code> returns a function pointer that must be converted<br>
+to its <strong>exact</strong> signature:</p>
+<pre><code>
+#include &lt;cwhip/Callbacks.h&gt;
+
+typedef int64_t (*OnValue)(CwhipCallbackContext *, int64_t);
+
+/* Called by a native-bound method or inline shim on a Cwhip thread. */
+CwhipCallbackContext *context =
+    cwhip_callback_acquire(callback, &quot;callback&lt;int(int)&gt;&quot;);
+OnValue function = (OnValue)cwhip_callback_adapter(context);
+int64_t answer = function(context, 42);
+/* Disconnect the C API&#x27;s registration before releasing the retained root. */
+cwhip_callback_release(context);
+/* Dispose only when the C library can no longer use the context pointer. */
+cwhip_callback_dispose(context);
+</code></pre>
+<p>The generated adapter&#x27;s ABI is <code>R(CwhipCallbackContext *, P1, P2, ...)</code>.<br>
+<code>int</code> is <code>int64_t</code>, <code>unsigned</code> is <code>uint64_t</code>, <code>float</code> is <code>double</code>, <code>bool</code> is<br>
+C <code>_Bool</code>, and managed references/handles are <code>void *</code>. A <code>void</code> result really<br>
+returns C <code>void</code>. Parameters keep their order. Use a small statically compiled<br>
+C forwarding function for APIs placing <code>void *user_data</code> last or otherwise<br>
+reordering it; it calls this exact adapter with context first. APIs that accept<br>
+only a bare function pointer are unsupported. Adapters are compiled per signature,<br>
+not dynamically generated executable per-object trampolines.</p>
+<p>The same API works in a hermetic inline shim:</p>
+<pre><code>
+// test: {&quot;stdout&quot;: &quot;42&quot;}
+class Worker {
+    int add(int value) { return value + 2 }
+}
+start {
+    Worker worker = Worker()
+    callback&lt;int(int)&gt; action = worker.add
+    int result = 0
+    inline(callback&lt;int(int)&gt; action, int result) {
+        CwhipCallbackContext *context =
+            cwhip_callback_acquire(*action, &quot;callback&lt;int(int)&gt;&quot;);
+        typedef int64_t (*OnValue)(CwhipCallbackContext *, int64_t);
+        OnValue function = (OnValue)cwhip_callback_adapter(context);
+        *result = function(context, 40);
+        cwhip_callback_release(context);
+        cwhip_callback_dispose(context);
+    }
+    print(result)
+}
+</code></pre>
+<p>Alternatively, `cwhip_callback_context_invoke(context, signature, arguments,<br>
+result)` invokes through the same boundary using an array of<br>
+<code>CwhipCallbackArgument</code> unions: <code>integer</code>, <code>unsigned_integer</code>, <code>floating</code>,<br>
+<code>boolean</code>, or <code>pointer</code>, according to the signature. Pass non-null result storage<br>
+even for void; it is not written in that case. A zero-argument call may pass null<br>
+arguments. This low-level API requires exactly the signature&#x27;s argument count<br>
+and union members, just as a C function call requires its exact argument types.</p>
+<h2 id="lifetime-rooting-and-boundary-policy">Lifetime, rooting, and boundary policy</h2>
+<p>Acquisition roots the callback and its captured receiver until release, even<br>
+after all Cwhip locals/fields referring to them go out of scope. Managed native<br>
+arguments are rooted throughout invocation, including allocations and reentry.<br>
+Managed results are borrowed: immediately store them in a captured/rooted Cwhip<br>
+slot before another allocating runtime call. Native pointers alone are not roots.</p>
+<p>The C library owns neither the callback nor the context&#x27;s storage. Disconnect<br>
+first, then release. Release during any invocation of that registration is<br>
+rejected. Release removes its GC root but keeps a tombstone: invocation, adapter<br>
+lookup, signature lookup, and repeated release after release explicitly abort<br>
+instead of using a dangling receiver. Disposal frees the tombstone and requires<br>
+an idle, released registration. <strong>No pointer may be used after disposal</strong>; C<br>
+code must guarantee disconnection and completion before disposing. Always release<br>
+and dispose registrations before their owner thread exits; exiting with an<br>
+undisposed registration is a fatal error. Different acquisitions<br>
+are independent registrations.</p>
+<p>All registration operations and invocation require the acquiring Cwhip thread,<br>
+registered with the runtime and currently holding its managed-code lock. Foreign<br>
+threads, including another registered Cwhip thread, are rejected with an<br>
+explicit fatal diagnostic before executing managed code. Do not invoke while a<br>
+native primitive has released the runtime lock. Same-thread synchronous reentry<br>
+is supported: nested invocations have independent exception/root frames and<br>
+in-flight counts. These generic registrations are not transferable. The optional<br>
+<a href="GTK.html">GTK foundation</a> adds a package-local GUI scheduler without weakening<br>
+these checks.</p>
+<h3 id="rooted-one-shot-transport-and-native-loop-reentry">Rooted one-shot transport and native loop reentry</h3>
+<p>For package authors implementing a scheduler, <code>&lt;cwhip/Callbacks.h&gt;</code> also exposes<br>
+the opaque <code>CwhipCallbackTransfer</code>:</p>
+<pre><code>
+CwhipCallbackTransfer *transfer =
+    cwhip_callback_transfer_prepare(callback, &quot;callback&lt;void()&gt;&quot;);
+/* Publish to the destination using package-owned synchronization. */
+CwhipCallbackContext *context = cwhip_callback_transfer_accept(transfer);
+/* The destination now owns context; transfer was consumed. */
+</code></pre>
+<p>Prepare validates the canonical signature and roots the callback/receiver<br>
+independently of the preparing thread&#x27;s lifetime. Accept requires a registered<br>
+Cwhip thread holding the managed lock and creates a new registration owned by<br>
+that accepting thread. It consumes/frees the transfer, without any gap in root<br>
+protection. <code>cwhip_callback_transfer_cancel(transfer)</code> consumes/frees it without<br>
+invocation and removes its root. Prepare/accept/cancel all require the managed<br>
+lock; the package is responsible for queue publication, single consumption,<br>
+shutdown cleanup, and never using a consumed pointer. Transfers are not<br>
+invocable adapters and do not change the ownership of existing registrations.</p>
+<p><code>&lt;cwhip/RuntimeGc.h&gt;</code> provides <code>cwhip_runtime_managed_enter()</code> and<br>
+<code>cwhip_runtime_managed_leave(acquired)</code> for native callbacks on **already<br>
+registered** threads. Enter returns 1 if it acquires a suspended thread&#x27;s lock,<br>
+0 if synchronous reentry already holds it. Leave restores that exact state.<br>
+Use strict <code>cwhip_runtime_gil_release()</code> / <code>cwhip_runtime_gil_acquire()</code> around<br>
+native blocking waits; never execute Cwhip or mutate managed data/roots while<br>
+suspended. The helpers neither register an unknown thread nor bypass callback<br>
+owner checks. See the GTK package for an actual scheduler and typed forwarding<br>
+implementation, not a generic permission to invoke from a foreign C thread.</p>
+<p><strong>Exception policy: fail-fast.</strong> Adapter entry installs an existing runtime<br>
+exception boundary inside the bridge. An exception escaping the Cwhip callback<br>
+is caught there, prints <code>Cwhip native callback error: uncaught Cwhip exception</code><br>
+and its message/stack, and calls <code>abort()</code>. No <code>longjmp</code> or unwinding crosses the<br>
+calling C library&#x27;s frames, no default native return value is fabricated, and an<br>
+outer Cwhip <code>except</code> cannot catch that boundary failure. Signature/lifetime/thread<br>
+violations likewise print a native callback error and abort. Exceptions caught<br>
+inside the callback behave normally. Use Cwhip code to handle recoverable<br>
+errors and return an explicit application-level error result.</p>
+<p>The hermetic fixture in <code>tests/functional/cli/callbacks/native.c</code> demonstrates<br>
+actual compilation/linking, retention, disconnection, reentry, and rejected<br>
+foreign-thread invocation without GTK.</p>
+</main>
+<footer>
+  <p>Cwhip. Documentation source of truth is the repository.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

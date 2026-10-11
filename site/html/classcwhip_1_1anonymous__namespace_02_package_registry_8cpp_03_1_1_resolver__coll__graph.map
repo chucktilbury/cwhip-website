@@ -1,0 +1,22 @@
+<map id="cwhip::anonymous_namespace{PackageRegistry.cpp}::Resolver" name="cwhip::anonymous_namespace{PackageRegistry.cpp}::Resolver">
+<area shape="rect" id="Node000001" title=" " alt="" coords="1536,63,1773,103"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="1177,5,1379,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="1393,40,1536,62,1536,67,1392,45"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="918,13,969,38"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="982,23,1176,23,1176,28,982,28"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="1151,70,1405,95"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="1419,80,1536,80,1536,85,1419,85"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="1151,119,1405,203"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="1418,129,1557,100,1558,105,1420,135"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="219,167,305,193"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="319,177,1037,167,1151,163,1151,169,1037,172,319,182"/>
+<area shape="rect" id="Node000009" href="$structcwhip_1_1anonymous__namespace_02_package_registry_8cpp_03_1_1_package_manifest.html" title=" " alt="" coords="444,103,736,143"/>
+<area shape="poly" id="edge10_Node000009_Node000006" title=" " alt="" coords="319,168,475,140,476,145,320,173"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="5,160,144,200"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="158,177,218,177,218,183,158,183"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="849,88,1037,157"/>
+<area shape="poly" id="edge7_Node000005_Node000008" title=" " alt="" coords="1051,132,1151,144,1150,149,1051,138"/>
+<area shape="poly" id="edge8_Node000008_Node000009" title=" " alt="" coords="750,120,849,120,849,125,750,125"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="193,103,331,129"/>
+<area shape="poly" id="edge9_Node000009_Node000010" title=" " alt="" coords="344,115,444,117,444,122,344,120"/>
+</map>

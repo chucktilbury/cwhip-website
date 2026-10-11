@@ -1,0 +1,19 @@
+<map id="cwhip_gc_collect" name="cwhip_gc_collect">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,55,137,80"/>
+<area shape="rect" id="Node000002" href="$_runtime_gc_8c.html#a36749158124bf061c1ca48747a78a55f" title=" " alt="" coords="185,5,319,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="118,52,190,32,192,37,119,57"/>
+<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#ac4f9be9a691a7f3ca584d11840454072" title=" " alt="" coords="204,55,300,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="137,65,190,65,190,70,137,70"/>
+<area shape="rect" id="Node000007" href="$_runtime_gc_8c.html#a851ba8a32861a1c42d0b943d755e646e" title=" " alt="" coords="203,104,301,129"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="119,77,192,98,190,103,118,83"/>
+<area shape="rect" id="Node000004" href="$_runtime_gc_8c.html#ab1fa05299839f43e6de9e10ad330fdef" title=" " alt="" coords="370,97,531,137"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="301,77,357,91,356,96,300,82"/>
+<area shape="rect" id="Node000005" href="$_runtime_gc_8c.html#a9d1fa65110c2b13d14763268a3fdc6c9" title=" " alt="" coords="399,47,502,72"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="300,63,385,59,385,65,300,68"/>
+<area shape="rect" id="Node000006" href="$_runtime_gc_8c.html#a8277e62b1442cc905bbb82cab02e10f4" title=" " alt="" coords="583,47,752,72"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="502,57,569,57,569,62,502,62"/>
+<area shape="poly" id="edge7_Node000007_Node000004" title=" " alt="" coords="302,114,356,114,356,119,302,119"/>
+<area shape="poly" id="edge8_Node000007_Node000005" title=" " alt="" coords="296,101,392,73,394,78,298,107"/>
+<area shape="rect" id="Node000008" href="$_runtime_gc_8c.html#a611495d6f4893ea15fe7e9e7c26f5154" title=" " alt="" coords="367,161,535,187"/>
+<area shape="poly" id="edge9_Node000007_Node000008" title=" " alt="" coords="298,127,394,155,392,160,296,132"/>
+</map>

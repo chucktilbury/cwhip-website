@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cwhip language reference — Cwhip</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="index.html">cwhip</a>
+  <nav class="main-nav">
+    <a href="index.html">Home</a>
+    <a href="docs.html">Documentation</a>
+    <a href="about-site.html">About this site</a>
+    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
+  </nav>
+</header>
+<main>
+<h1 id="cwhip-language-reference">Cwhip language reference</h1>
+<p>Cwhip is the object-oriented language implemented by this repository&#x27;s<br>
+compiler, invoked as <code>cwhip</code>. The name comes from the coachwhip, a fast,<br>
+nonvenomous snake; Cwhip aims to be a small, nimble compiler, and bug-eating is<br>
+a playful metaphor for the snake&#x27;s prey and finding software bugs—not a<br>
+reference to goads, punishment, or violence. The compiler frontend is C++17<br>
+and the runtime is written in C. CPL and CWPL are optional informal shorthand.<br>
+The canonical project website is <a href="https://cwhip.org">cwhip.org</a>.<br>
+New source files use <code>.cw</code>; no alternate source suffix is accepted for<br>
+existing programs. This manual describes the working subset: the compiler<br>
+produces textual LLVM IR and invokes Clang to link the runtime. It is not a<br>
+description of every feature proposed in the design notes.</p>
+<p>The parser limits recursive syntax nesting to 128 active levels, counting<br>
+namespaces, statement blocks, expressions, and unary operators. Excessive<br>
+nesting is a compile-time diagnostic, not a process crash. This protects the<br>
+recursive parser from malformed or adversarial inputs; ordinary programs<br>
+remain well below the limit.<br>
+Expression trees are also limited to depth 128, including flat operator/member<br>
+chains, to protect later recursive analysis and AST cleanup. Long shallow<br>
+collections are not restricted by this depth limit.</p>
+<p>Grammar links below name productions in <a href="GRAMMAR.html">GRAMMAR.md</a>. Standard<br>
+library package APIs are intentionally covered separately in<br>
+<a href="STDLIB.html">STDLIB.md</a>.</p>
+<h2 id="lexical-structure">Lexical structure</h2>
+<p>Identifiers start with an ASCII letter or <code>_</code> and continue with letters,<br>
+digits, or <code>_</code>. Keywords are case-insensitive; identifiers are case-sensitive.<br>
+The exact identifier <code>String</code> names the built-in string class, while <code>strg</code> is<br>
+the primitive type keyword for string values. Lowercase <code>string</code> is an ordinary<br>
+identifier. <code>list</code> and <code>dict</code> are the collection type keywords; <code>array</code> and<br>
+<code>map</code> are ordinary identifiers. See <code>IDENT</code>,<br>
+<code>primitive-type</code>, and the lexical grammar.</p>
+<p>Statements normally end at a newline. Braces delimit blocks; indentation is<br>
+for readability only. Newlines inside <code>()</code> and <code>[]</code> are ignored. <code>;</code>, <code>#</code>,<br>
+and <code>//</code> start line comments; <code>/<em> ... </em>/</code> comments can span lines but do not<br>
+nestedly pair. A semicolon begins a comment rather than separating statements.<br>
+See <code>NEWLINE</code>, <code>COMMENT</code>, and <code>terminator</code>.</p>
+<p>Integer literals may be decimal or hexadecimal (<code>0x</code>/<code>0X</code> followed by<br>
+case-insensitive digits <code>0</code>-<code>9</code> and <code>a</code>-<code>f</code>). Unsuffixed literals are signed<br>
+64-bit <code>int</code> values by default; a trailing <code>u</code> or <code>U</code> selects an unsigned<br>
+64-bit literal. The signed range is<br>
+-9,223,372,036,854,775,808 through 9,223,372,036,854,775,807; literals outside<br>
+the applicable range are rejected. Signs are unary operators, so<br>
+<code>-0x8000000000000000</code> is the signed minimum, but its positive magnitude is<br>
+out of range for <code>int</code>. Float literals accept decimal points and exponents.<br>
+Double-quoted and single-quoted strings are UTF-8 and cannot span physical<br>
+lines. Double quotes support <code>\e</code> (ESC, byte <code>0x1b</code>), <code>\n</code>, <code>\r</code>, <code>\t</code>,<br>
+<code>\\</code>, and <code>\&quot;</code>; single quotes do not interpret escapes. See <code>INTEGER</code>,<br>
+<code>UNSIGNED_INT</code>, <code>FLOAT</code>, <code>STRING</code>, and <code>ESCAPE</code>.</p>
+<pre><code>
+// Complete program: literal spellings and a formatted string.
+// test: {&quot;stdout&quot;: &quot;count=18, total=18, ratio=0.5&quot;}
+start {
+    int count = 0x12
+    unsigned total = 0x12u
+    float ratio = .5
+    print(format(&quot;count={}, total={}, ratio={}&quot;, count, total, ratio))
+}
+</code></pre>
+<h2 id="program-structure-and-entry-point">Program structure and entry point</h2>
+<p>A program has zero or more top-level imports and declarations, followed by<br>
+exactly one <code>start { ... }</code> block (<code>program</code>, <code>start-block</code>). The <code>start</code><br>
+block is the executable entry point; <code>return</code> is reserved for methods and is<br>
+not a way to exit from <code>start</code>. A separately imported module may contain<br>
+declarations but no <code>start</code> (<code>module</code>). The compiler can also compile several<br>
+source files as one compilation unit, with exactly one <code>start</code> among them.</p>
+<pre><code>
+// Complete program: executable statements live in start.
+// test: {&quot;stdout&quot;: &quot;Cwhip is running&quot;}
+start {
+    print(&quot;Cwhip is running&quot;)
+}
+</code></pre>
+<h2 id="types-and-values">Types and values</h2>
+<p><code>callback&lt;R(P1,P2)&gt;</code> declares a bound-instance-method callable signature.<br>
+Capture with <code>object.method</code> (no invocation parentheses), then call the value<br>
+with <code>action(arguments)</code>. Callback locals, fields, parameters, and results<br>
+are supported with exact signature checking, contextual overload selection,<br>
+virtual dispatch, and receiver GC retention. Null/default, equality, unsupported<br>
+dynamic operations, and the installed C bridge are specified in<br>
+<a href="CALLBACKS.html">Bound-method callbacks</a>.</p>
+<pre><code>
+// test: {&quot;stdout&quot;: &quot;42&quot;}
+class Worker {
+    int answer(int value) { return value + 2 }
+}
+start {
+    Worker worker = Worker()
+    callback&lt;int(int)&gt; action = worker.answer
+    print(action(40))
+}
+</code></pre>
+<p>The built-in types are:</p>
+<table>
+<tr><th>Type</th><th>Values and behavior</th></tr>
+<tr><td><code>int</code></td><td>Signed 64-bit integer.</td></tr>
+<tr><td><code>unsigned</code></td><td>Unsigned 64-bit integer.</td></tr>
+<tr><td><code>float</code></td><td>IEEE double-precision floating-point value. Literal parsing rejects non-finite/out-of-range values.</td></tr>
+<tr><td><code>bool</code></td><td><code>true</code> or <code>false</code>. Conditions must have this type; there is no general truthiness conversion.</td></tr>
+<tr><td><code>String</code> / <code>strg</code></td><td>Managed UTF-8 string object. <code>strg</code> names the existing <code>String</code> class type.</td></tr>
+<tr><td><code>list</code></td><td>Ordered, dynamically sized, heterogeneous collection.</td></tr>
+<tr><td><code>dict</code></td><td>String-keyed collection with dynamically typed values.</td></tr>
+<tr><td><code>buffer</code></td><td>Mutable sequence of bytes.</td></tr>
+<tr><td><code>handle</code></td><td>Opaque native/runtime handle with no built-in language operations.</td></tr>
+<tr><td><code>any</code></td><td>Internal inferred type for dynamically tagged values, especially collection reads and loop values. It is not a user-declarable type.</td></tr>
+<tr><td><code>type</code></td><td>Runtime type descriptor, produced by <code>type(value)</code> or a type name used as a value.</td></tr>
+<tr><td>class name</td><td>Managed object reference, including <code>Exception</code> subclasses.</td></tr>
+</table>
+<p>Although <code>any</code> is a reserved token and an internal inferred type name, users<br>
+cannot declare <code>any</code> variables, fields, parameters, or return types. Collection<br>
+reads and foreach values are inferred as <code>any</code> internally; that does not make<br>
+<code>any</code> legal in a declaration. Such values can be inspected with <code>is</code> or<br>
+<code>type(...)</code>, printed, compared with <code>null</code>, and stored or passed where the<br>
+dynamic value is supported. To use a value in ordinary member access or<br>
+arithmetic, first extract it into a concrete typed local; extraction performs<br>
+a runtime type check and raises if the value has a different type. See<br>
+<code>primitive-type</code>, <code>type</code>, <code>return-type</code>, and <code>type-test-name</code>.</p>
+<p>The parser also recognizes <code>void</code> as a method return type. It is not a<br>
+storable value type. See <code>primitive-type</code>, <code>type</code>, <code>return-type</code>, and<br>
+<code>type-test-name</code>.</p>
+<p>Conversions are deliberately limited. Compatible class references can be<br>
+assigned to a base-class variable when the inheritance path is unambiguous<br>
+and accessible. Dynamically tagged collection values can be extracted into<br>
+supported concrete local types; the runtime checks the contained value.<br>
+Explicit scalar casts use<br>
+<code>bool(expr)</code>, <code>int(expr)</code>, <code>unsigned(expr)</code>, or <code>float(expr)</code>. All sixteen<br>
+ordered pairs of these scalar types are supported, including identity casts.<br>
+The operand must have one of these four static types; class, reference,<br>
+string, dynamically tagged <code>any</code>, and bare <code>null</code> operands are not supported.<br>
+Implicit numeric conversions<br>
+are not general-purpose; overload resolution allows a plain integer literal<br>
+(decimal or hexadecimal) to match an <code>unsigned</code> parameter, while <code>u</code> literals<br>
+are unsigned directly.<br>
+The following table is normative (rows are source types, columns are targets):</p>
+<table>
+<tr><th>Source / target</th><th><code>bool</code></th><th><code>int</code> (signed i64)</th><th><code>unsigned</code> (u64)</th><th><code>float</code> (double)</th></tr>
+<tr><td><code>bool</code></td><td>Identity</td><td><code>false</code> = 0, <code>true</code> = 1</td><td><code>false</code> = 0, <code>true</code> = 1</td><td><code>false</code> = 0.0, <code>true</code> = 1.0</td></tr>
+<tr><td><code>int</code></td><td>Zero = false, nonzero = true</td><td>Identity</td><td>Value modulo 2^64 (same bits)</td><td>IEEE double conversion</td></tr>
+<tr><td><code>unsigned</code></td><td>Zero = false, nonzero = true</td><td>Checked value &lt;= 9223372036854775807</td><td>Identity</td><td>IEEE double conversion</td></tr>
+<tr><td><code>float</code></td><td>Zero = false, nonzero (including NaN) = true</td><td>Checked, truncate toward zero</td><td>Checked, truncate toward zero</td><td>Identity</td></tr>
+</table>
+<p>Integer-to-float conversion rounds to the nearest representable double when<br>
+needed. Casting <code>int</code> to <code>unsigned</code> preserves the 64-bit pattern and yields<br>
+the value modulo 2^64, without overflow: <code>unsigned(-10)</code> is<br>
+18446744073709551606, <code>unsigned(-1)</code> is 18446744073709551615, and<br>
+<code>unsigned(-9223372036854775808)</code> is 9223372036854775808. Printing these<br>
+results uses unsigned decimal notation. The reverse cast remains checked:<br>
+an <code>unsigned</code> greater than 9223372036854775807 cast to <code>int</code> raises a<br>
+catchable <code>integer overflow</code> exception, rather than reinterpreting the bits.<br>
+Float-to-integer casts check the input <strong>before</strong> truncating toward zero.<br>
+For <code>int</code>, the accepted interval is [-9223372036854775808, 9223372036854775808);<br>
+for <code>unsigned</code>, it is [0, 18446744073709551616). NaN, either infinity, and<br>
+values outside these intervals raise the same exception, including negative<br>
+fractions or negative subnormals cast to <code>unsigned</code>.<br>
+For <code>bool(floatValue)</code>, both +0.0 and -0.0 are false; every other value,<br>
+including positive/negative subnormals, infinities, and NaN, is true.<br>
+Identity casts preserve the scalar payload, including floating-point signed<br>
+zero and NaN. Signed<br>
+<code>int</code> division or remainder with the minimum value and <code>-1</code> likewise raises<br>
+<code>integer overflow</code>.<br>
+String-to-number conversion is provided by the instance methods<br>
+<code>value.toInt()</code>, <code>value.toUnsigned()</code>, and <code>value.toFloat()</code> and can raise on<br>
+invalid input or an integer value outside the target type&#x27;s range.<br>
+See <code>primary</code> and <code>postfix</code>.</p>
+<p><code>null</code> is a universal null value and can initialize nullable locals, including<br>
+scalar locals. Such a scalar local carries a null state for assignment,<br>
+printing, and comparison with <code>null</code>. An explicit cast consumes that state:<br>
+it converts the local&#x27;s zero payload and returns a non-null scalar, even for<br>
+an identity cast. Thus <code>bool(nullFloat)</code> is false, <code>float(nullInt)</code> is 0.0,<br>
+and <code>int(nullInt)</code> is a non-null 0; none raises an exception.<br>
+Null assignment does not make<br>
+primitive fields, collection values, arguments, or returns nullable in the<br>
+same way: those contexts retain their declared representation. Object and<br>
+reference values can be null. Use <code>is Type</code> to inspect a value&#x27;s dynamic type;<br>
+<code>type(value)</code> returns its type descriptor. See <code>type-test-name</code>, <code>primary</code>,<br>
+and <code>relational</code>.</p>
+<pre><code>
+// Complete program: null locals, casts, and runtime type tests.
+// test: {&quot;stdout&quot;: &quot;no integer value&quot;}
+start {
+    int maybe = null
+    if (maybe is int) {
+        print(maybe)
+    } else {
+        print(&quot;no integer value&quot;)
+    }
+}
+</code></pre>
+<h2 id="variables-and-scope">Variables and scope</h2>
+<p>Declare a local with <code>type name</code>. Class-typed locals may be constructed<br>
+directly with <code>ClassName name(arguments)</code>, including <code>ClassName name()</code> for<br>
+the zero-argument constructor. This form selects the matching constructor<br>
+using the usual overload, type, and access checks. Built-in types do not use<br>
+this syntax. The existing <code>type name = expression</code> form remains supported,<br>
+including constructor expressions such as <code>Base item = Derived()</code>; constructor<br>
+expressions also remain valid in returns, call arguments, and other expression<br>
+contexts. Locals are block-scoped and may be initialized later. An inner<br>
+declaration shadows an outer binding; assignments to the inner variable do not<br>
+change the outer one, and shadowing currently emits no warning. Redeclaring a<br>
+name in the same scope is an error. The compiler diagnoses a read that may<br>
+occur before initialization. Parameters and fields are introduced by their<br>
+declarations; fields have no initializer syntax, and <code>for</code> loop variables<br>
+exist only in the loop body. Assignment operators are statements, not<br>
+expressions. <code>=</code> assigns normally; <code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code>, and <code>%=</code> update an<br>
+<code>int</code>, <code>unsigned</code>, or <code>float</code> variable or object field using the corresponding<br>
+arithmetic operation.<br>
+Both operands must have a matching arithmetic type, and <code>%=</code> is limited to<br>
+<code>int</code> and <code>unsigned</code>. Collections, buffers, <code>any</code>, booleans, and object<br>
+references do not support compound assignment. A compound assignment evaluates<br>
+its target once; for a member target, its receiver is evaluated once. Integer<br>
+overflow and integer division/remainder errors follow the corresponding<br>
+arithmetic operators.</p>
+<pre><code>
+// Complete program: an inner value shadows, rather than changes, the outer value.
+// test: {&quot;stdout&quot;: &quot;340&quot;}
+start {
+    int value = 40
+    {
+        int value = 2
+        value = value + 1
+        print(value)
+    }
+    print(value)
+}
+</code></pre>
+<p>This writes <code>340</code>; <code>print</code> does not add line breaks.</p>
+<h2 id="expressions-and-operators">Expressions and operators</h2>
+<p>Expressions include literals, names, parentheses, list, dict, and buffer<br>
+literals, casts, <code>type(value)</code>, <code>buffer(length)</code>, class construction, method calls,<br>
+member access, indexing, slicing, and type tests. Calls are written as<br>
+<code>ClassName(arguments)</code> for construction or <code>object.method(arguments)</code> for<br>
+methods. The parser does not support free functions, closures, or arbitrary<br>
+callable-valued expressions. See <code>expression</code>, <code>primary</code>, <code>postfix</code>, and<br>
+<code>constructor-declaration</code>.</p>
+<p>Operators from lowest to highest precedence:</p>
+<table>
+<tr><th>Operators</th><th>Associativity</th></tr>
+<tr><td><code>or</code>, `\</td><td>\</td><td>`</td><td>left</td></tr>
+<tr><td><code>and</code>, <code>&amp;&amp;</code></td><td>left</td></tr>
+<tr><td><code>not</code>, <code>!</code></td><td>right prefix</td></tr>
+<tr><td><code>==</code>, <code>!=</code></td><td>left</td></tr>
+<tr><td><code>is</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></td><td>left</td></tr>
+<tr><td><code>+</code>, <code>-</code></td><td>left</td></tr>
+<tr><td><code>*</code>, <code>/</code>, <code>%</code></td><td>left</td></tr>
+<tr><td>unary <code>+</code>, unary <code>-</code></td><td>right prefix</td></tr>
+<tr><td><code>.</code>, calls, <code>[]</code> indexing/slicing, <code>as</code> checked extraction</td><td>repeated postfix</td></tr>
+</table>
+<p>Logical operators require booleans. Arithmetic and comparison support depend<br>
+on operand types; unsupported combinations are rejected during semantic<br>
+analysis. Assignment is not an expression. There are no bitwise, increment,<br>
+or ternary operators.</p>
+<h3 id="checked-extraction-with-as">Checked extraction with <code>as</code></h3>
+<p><code>value as Target</code> is checked extraction/identity, not a numeric conversion.<br>
+Targets are <code>int</code>, <code>unsigned</code>, <code>bool</code>, <code>float</code>, <code>strg</code> (also spelled <code>String</code>),<br>
+<code>list</code>, <code>dict</code>, <code>buffer</code>, <code>handle</code>, <code>type</code>, <code>null</code>, <code>any</code>, or a declared class<br>
+(including a qualified class name). <code>void</code> and unknown names are compile-time<br>
+errors. The source is evaluated exactly once.</p>
+<p>An internal <code>any</code> source, such as a list or dict read or foreach value, is<br>
+checked against the requested dynamic tag. Scalars and type descriptors require<br>
+the exact matching tag; <code>strg</code>/<code>String</code> requires a String object; list, dict,<br>
+buffer, and handle targets require their respective reference tags; class<br>
+targets accept the exact class or a subclass.<br>
+Class extraction adjusts to the requested unique base subobject, including<br>
+secondary and virtual bases. Ambiguous repeated nonvirtual bases and all<br>
+mismatches raise catchable, source-located runtime exceptions. Use <code>is</code> to<br>
+inspect mixed bags without raising on a mismatch.</p>
+<p>Statically known sources may be extracted identically; class references may<br>
+also be checked against another class target. Other statically impossible<br>
+source/target pairs are rejected during semantic analysis. <code>as any</code> boxes a<br>
+statically typed supported value, or preserves an existing <code>any</code>; the <code>null</code> literal boxes as the dynamic null value. <code>as null</code> checks<br>
+for a null pointer in a reference payload (class/String, list, dict, buffer,<br>
+or handle) or a dynamic null. It does not recognize null-valued scalar slots<br>
+or type descriptors.</p>
+<p>Null extraction follows the existing typed-extraction representation:<br>
+Class/String extraction preserves the canonical dynamic null payload.<br>
+<code>buffer</code> extraction accepts that canonical null tag; <code>handle</code> extraction<br>
+accepts it and also accepts a null pointer carrying the handle tag. <code>list</code> and<br>
+<code>dict</code> extraction require their matching tag and a non-null collection<br>
+reference. Scalar and <code>type</code> targets require their exact tags and therefore<br>
+reject null. Statically typed same-type expressions remain identity<br>
+operations and preserve their existing nullable value. No new<br>
+nullable-scalar behavior is introduced.</p>
+<p>Use <code>(items[index] as Foo).method()</code> for member calls without a temporary<br>
+local. Qualified targets work, for example<br>
+<code>(mapping[&quot;item&quot;] as model.Foo).method()</code>. Casts bind at postfix precedence.<br>
+<code>Foo(value)</code> remains construction, never a cast, and scalar conversions retain<br>
+their existing <code>int(value)</code>, <code>bool(value)</code>, <code>unsigned(value)</code>, and<br>
+<code>float(value)</code> syntax.</p>
+<p>Literal text can be formatted with the <code>format</code> intrinsic and positional<br>
+arguments, such as <code>format(&quot;value: {}&quot;, value)</code>, or with named arguments, such as<br>
+<code>format(&quot;user {name} has {count} messages&quot;, count=total, name=user)</code>. Named arguments<br>
+bind case-sensitively to placeholder names regardless of argument order.<br>
+Each distinct placeholder needs exactly one named argument; a name may be<br>
+referenced repeatedly, and its argument expression is evaluated once.<br>
+Positional <code>{}</code> and named <code>{name}</code> forms cannot be mixed in one format call.<br>
+Use <code>{{</code> and <code>}}</code> for literal braces. Formatting is not automatic<br>
+interpolation. Arguments support the same printable scalar, string, type, and<br>
+dynamic values as positional formatting. <code>format</code> returns a fresh managed <code>strg</code>,<br>
+usable anywhere an expression is accepted. Templates must be string literals<br>
+(either quote style); dynamic templates are not supported. Arguments are<br>
+evaluated and snapshotted once, left-to-right, before assembling the result.<br>
+The old string-literal-call syntax is rejected, not an alias.</p>
+<p><code>print(value)</code> retains scalar/string/type/dynamic printing. <code>print(&quot;literal&quot;)</code><br>
+prints the literal unchanged, including braces. <code>print(&quot;value: {}&quot;, value)</code><br>
+formats with the same rules as <code>format</code>, then writes the completed result<br>
+without adding a newline; formatting failure emits no partial output.</p>
+<p>An optional <code>:</code> introduces this deliberately limited, C++20-inspired subset,<br>
+not full <code>std::format</code> compatibility:</p>
+<table>
+<tr><th>Specifier</th><th>Meaning</th></tr>
+<tr><td><code>d</code></td><td>Decimal <code>int</code> or <code>unsigned</code></td></tr>
+<tr><td><code>x</code>, <code>X</code></td><td>Lower-/upper-case hexadecimal, without prefix; negative signed values use sign plus magnitude</td></tr>
+<tr><td><code>c</code></td><td>One ASCII byte from an integral value in 0..127, including NUL</td></tr>
+<tr><td>Width</td><td>Minimum field width, at most 1000000; never truncates</td></tr>
+<tr><td><code>&lt;</code>, <code>&gt;</code>, <code>^</code> before width</td><td>Left, right, or center space padding; an odd center-padding remainder goes on the right</td></tr>
+<tr><td>Leading <code>0</code> before width</td><td>Numeric zero padding after the minus sign; integral values only; incompatible with explicit alignment and <code>c</code></td></tr>
+</table>
+<p>The order is <code>[alignment][width][type]</code>, for example <code>{:x}</code>, <code>{:08X}</code>,<br>
+<code>{:c}</code>, <code>{:&gt;8}</code>, or <code>{value:08X}</code>. Empty specs retain default rendering.<br>
+Default alignment is right for numeric values and left otherwise. Width counts<br>
+Unicode code points, not bytes or terminal display columns. Floating-point<br>
+precision, custom fill characters, positional indices, and other type codes<br>
+are unsupported. Explicit type codes require <code>int</code>/<code>unsigned</code>; statically<br>
+known incompatible types and malformed templates are compile-time errors.<br>
+Dynamic type mismatches and ASCII range violations raise catchable exceptions<br>
+located at the argument expression. Negative values and 128+ never generate<br>
+invalid UTF-8. See <code>format-expression</code> and <code>print-statement</code> in the grammar.</p>
+<pre><code>
+// Complete program: arithmetic, logical operators, and formatting.
+// test: {&quot;stdout&quot;: &quot;answer=42&quot;}
+start {
+    int first = 20
+    int second = 22
+    bool ready = first &gt; 0 and second &gt; 0
+    if (ready) {
+        print(format(&quot;answer={}&quot;, first + second))
+    }
+}
+</code></pre>
+<h2 id="statements">Statements</h2>
+<p>The supported statements are local declarations, assignment, method-call<br>
+expression statements, <code>print</code>, nested blocks, <code>if</code>/<code>else</code>, <code>while</code>,<br>
+<code>do</code>/<code>while</code>, <code>for</code>-each, <code>break</code>, <code>continue</code>, <code>return</code>, <code>try</code>/<code>except</code>/<br>
+<code>finally</code>, <code>raise</code>, base-constructor initializers, and inline C. See<br>
+<code>statement</code> and its named productions.</p>
+<p>Conditions are parenthesized and must be <code>bool</code>. <code>else</code> always introduces a<br>
+block; there is no <code>else if</code> production. The <code>do</code> body executes at least once.<br>
+<code>for (value in collection)</code> iterates list values; <code>for (key, value in dict)</code><br>
+iterates dict keys and values. The value variable has type <code>any</code>; the key<br>
+variable has type <code>String</code>. <code>break</code> and <code>continue</code> are valid only in loops.</p>
+<pre><code>
+// Complete program: while, continue, and for-each.
+// test: {&quot;stdout&quot;: &quot;6&quot;}
+start {
+    list values = [2, 3, 4]
+    int total = 0
+    for (value in values) {
+        if (value is int) {
+            int number = value
+            if (number == 3) {
+                continue
+            }
+            total = total + number
+        }
+    }
+    print(total)
+}
+</code></pre>
+<h2 id="classes-objects-inheritance-and-dispatch">Classes, objects, inheritance, and dispatch</h2>
+<p>Classes contain fields and methods. Member access is <code>public</code> by default;<br>
+<code>private:</code> and <code>protected:</code> switch the access level for following members;<br>
+<code>public:</code> restores public access.<br>
+Fields have no in-class initializer syntax. A constructor is named after its<br>
+class, omits the return type (write <code>Name(...)</code>, not <code>void Name(...)</code>), and<br>
+can be overloaded. A class-body method named after its class with any return<br>
+type is rejected rather than treated as an ordinary method. A destructor is written <code>destroy { ... }</code> inside<br>
+the class; it has no return-type or parameter list. Methods can be defined in<br>
+the class body or declared there and defined out of line. See<br>
+<code>class-declaration</code>, <code>class-member</code>, <code>constructor-declaration</code>,<br>
+<code>destructor-declaration</code>, <code>method-declaration</code>, and<br>
+<code>out-of-line-definition</code>.</p>
+<p>An anonymous class-scoped enum block declares immutable signed 64-bit <code>int</code><br>
+constants, not an enum type:</p>
+<pre><code>
+class Status {
+    // test: {&quot;stdout&quot;: &quot;12&quot;}
+    public:
+    enum {
+        READY = 10,
+        RUNNING,
+        COMPLETE = READY + 2,
+    }
+}
+
+start {
+    Status status = Status()
+    int code = status.RUNNING
+    print(Status.COMPLETE)
+}
+</code></pre>
+<p>The first omitted value in each block is <code>0</code>; each later omitted value is the<br>
+preceding value plus one. Explicit values may use integer literals, unary<br>
+<code>+</code>/<code>-</code>, <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>, and previously resolved enum members. Values<br>
+are checked for signed 64-bit overflow, including implicit increments;<br>
+duplicate numeric values are allowed, but duplicate names and class-member<br>
+collisions are errors. Forward/cyclic references, nonconstant expressions,<br>
+division by zero, and out-of-range values are compile-time errors. Multiple<br>
+blocks may appear in one class, with distinct member names.</p>
+<p>Constants are usable anywhere an <code>int</code> expression is accepted, including<br>
+method arguments, collection values, and scalar casts. They follow the<br>
+declaring member&#x27;s public/protected/private access and ordinary inherited<br>
+member lookup; ambiguous inherited constants need explicit base qualification.<br>
+Use either <code>object.NAME</code> or <code>Class.NAME</code>, including namespace-qualified class<br>
+names. Instance-qualified access resolves from the static class and does not<br>
+dereference or null-check the receiver, but a receiver expression with side<br>
+effects is still evaluated exactly once. Constants have no runtime allocation<br>
+or per-instance storage. Assignment, compound assignment, and inline field<br>
+captures are rejected; copy the constant into a local before modifying or<br>
+capturing it.</p>
+<p>Inheritance uses a colon and one or more comma-separated base specifiers.<br>
+Each base defaults to public access. <code>public</code>, <code>protected</code>, or <code>private</code><br>
+controls the inheritance path; <code>virtual</code> may also mark a base. Multiple<br>
+inheritance, virtual bases, and base-qualified member access are implemented.<br>
+Ambiguous inherited fields/methods must be qualified through a base.<br>
+Constructors initialize direct bases with <code>super Base(args)</code> as leading<br>
+statements. Virtual bases use either <code>super virtual Base(args)</code> or<br>
+<code>virtual super Base(args)</code>; the two forms have identical semantics. A dot is<br>
+not allowed between these keywords or the base name. Virtual inheritance is<br>
+distinct from virtual method dispatch: it shares a base subobject across<br>
+inheritance paths, while virtual method dispatch selects an override at<br>
+runtime. A non-virtual base is a separate subobject on each path.</p>
+<p>Only the most-derived constructor initializes the complete object&#x27;s virtual<br>
+bases. Every class that has virtual bases may declare <code>super virtual Base(...)</code>,<br>
+even when it is also used as a base class, and may be constructed directly.<br>
+When that constructor runs for a base subobject, its virtual-base initializers<br>
+are skipped and their argument expressions are not evaluated. The<br>
+most-derived constructor initializes each virtual base once; if it omits an<br>
+initializer, that base&#x27;s zero-argument constructor runs automatically. If the<br>
+base has no zero-argument constructor, constructing the most-derived class<br>
+without an explicit initializer is a compile-time error. Virtual bases are<br>
+constructed before direct non-virtual bases in depth-first, left-to-right<br>
+virtual-base order, with virtual ancestors before their descendants. A shared<br>
+virtual base is destroyed once, after non-virtual bases, in reverse virtual<br>
+construction order; repeated non-virtual base subobjects are each destroyed<br>
+separately.</p>
+<p>A derived class may override an inherited method with a compatible signature.<br>
+Calls use the runtime object&#x27;s method dispatch; there is no separate <code>virtual</code><br>
+method modifier.</p>
+<p>A constructor may instead begin with a single <code>try</code> whose body consists only<br>
+of its base initializers. Required direct bases must still be initialized<br>
+exactly once in declared order; explicit virtual initializers precede them<br>
+in virtual-base construction order and only initialize virtual bases when this<br>
+constructor is running for the complete object.<br>
+Automatic default virtual-base initialization also runs inside this <code>try</code>.<br>
+Every <code>except</code> handler must raise or rethrow on every path (nested blocks,<br>
+<code>if</code>/<code>else</code>, and <code>try</code> are supported); any <code>return</code>, including a nested or<br>
+unreachable return, is rejected. A loop alone is not proof of exceptional<br>
+termination. Optional <code>finally</code> uses the normal exception cleanup rules.<br>
+Handlers cannot recover a failed initialization: the constructor cannot<br>
+continue or return a successfully constructed partial object. No destructor<br>
+or finalizer runs for the failed allocation. <code>raise()</code> retains the original<br>
+exception object, raise location, and stack trace; a replacement <code>raise</code><br>
+creates a new exception. Initializers in handlers, cleanup, branches, loops,<br>
+later statements, or mixed direct/protected sequences are rejected.</p>
+<pre><code>
+class Foo {
+    // test: {&quot;stdout&quot;: &quot;caught the first timethis is the stringcaught the second time&quot;}
+    Foo() { raise(Exception(&quot;this is the string&quot;)) }
+}
+class Bar : Foo {
+    Bar() {
+        try { super Foo() }
+        except() {
+            print(&quot;caught the first time&quot;)
+            raise()
+        }
+    }
+}
+start {
+    try { Bar b() }
+    except() as e {
+        print(e)
+        print(&quot;caught the second time&quot;)
+    }
+}
+</code></pre>
+<pre><code>
+// Complete program: inheritance, construction, override, and dispatch.
+// test: {&quot;stdout&quot;: &quot;42&quot;}
+class Meter {
+    int value
+    Meter(int initial) {
+        value = initial
+    }
+    int read() {
+        return value
+    }
+}
+
+class AdjustedMeter : public Meter {
+    AdjustedMeter(int initial) {
+        super Meter(initial)
+    }
+    int read() {
+        return value + 1
+    }
+}
+
+start {
+    Meter meter = AdjustedMeter(41)
+    print(meter.read())
+}
+</code></pre>
+<p>The above is a complete program. Base-qualified member access uses an object<br>
+and a base path (for example, <code>object.Base.field</code>, <code>object.Base.method()</code>, or<br>
+<code>object.Left.Root.field</code>). Inside a method, constructor, or destructor body,<br>
+the receiver may be omitted: <code>Base.field</code> and <code>Base.method(args)</code> refer to the<br>
+current object&#x27;s base subobject, not static or class-level storage.<br>
+<code>Left.Root.field</code> and <code>Left.Root.method(args)</code> select successive direct bases;<br>
+the path cannot skip an inheritance edge. Reads, assignments, and supported<br>
+scalar compound assignments (<code>+=</code>, <code>-=</code>, <code>*=</code>, <code>/=</code>, <code>%=</code>) use the same base<br>
+layout and accessibility rules as explicit-object access. Method calls retain<br>
+runtime dispatch, just like <code>object.Base.method()</code>; qualification selects a<br>
+base view, not a non-virtual call.</p>
+<p>A local variable or parameter takes precedence over a field, and a field takes<br>
+precedence over an implicit base qualifier, even if its name matches a base.<br>
+Thus <code>Base.field</code> uses an ordinary object receiver when <code>Base</code> names a variable<br>
+or field; it does not fall back to base qualification if that receiver is<br>
+invalid or ambiguous. Otherwise, the initial class name is resolved using the<br>
+normal lexical namespace/import-alias rules and must name a direct base.<br>
+Both <code>Base.field</code> and <code>Namespace.Base.field</code> can supply that initial class name.<br>
+Subsequent base steps follow the existing explicit-object base-path rules.<br>
+Type-valued contexts and qualified class construction retain their existing<br>
+name resolution; <code>Namespace.Class()</code> still constructs an object when its<br>
+receiver prefix is not an applicable implicit base.</p>
+<p>Private inheritance permits access from the class declaring that inheritance<br>
+but not from outside it or further derived classes. Base-private members<br>
+remain inaccessible; protected members follow the ordinary derived-class<br>
+access rules. Ambiguous unqualified members remain errors. This syntax does<br>
+not enable <code>Base.field</code> or <code>Base.method()</code> outside an applicable class body.</p>
+<p>A <code>super</code> base initializer is only for constructor initialization and must<br>
+appear before ordinary constructor statements. Field visibility uses sections<br>
+such as <code>public:</code> followed by separate field declarations, not inline<br>
+<code>public int field</code> declarations.</p>
+<p>Explicit <code>object.destroy()</code> invokes the destructor but does not immediately<br>
+reclaim the object&#x27;s storage, and no compiler warning is emitted. The call<br>
+still uses parentheses; only the in-class definition omits them. The object<br>
+is marked destroyed before the destructor runs; a repeated destruction call<br>
+or later use of the object raises a catchable runtime exception. Destructors<br>
+cannot be defined out of line. See <code>super-initializer</code> and <code>postfix</code>.</p>
+<h2 id="namespaces">Namespaces</h2>
+<p>Namespaces group classes and can nest or reopen. A class&#x27;s namespace prefix<br>
+is used when resolving its type and base names. <code>start</code>, <code>import</code>, and<br>
+<code>include</code> cannot be declared within a namespace. Out-of-line definitions must<br>
+be in the same namespace scope as the class they define. See<br>
+<code>namespace-declaration</code> and <code>namespace-item</code>.</p>
+<pre><code>
+// Complete program: a class in a namespace.
+// test: {&quot;stdout&quot;: &quot;7&quot;}
+namespace Geometry {
+    class Point {
+        int x
+        Point(int value) {
+            x = value
+        }
+        int coordinate() {
+            return x
+        }
+    }
+}
+
+start {
+    Geometry.Point point(7)
+    print(point.coordinate())
+}
+</code></pre>
+<h2 id="imports-packages-and-textual-inclusion">Imports, packages, and textual inclusion</h2>
+<p><code>import Name</code> resolves a package and exposes its declared exported namespace<br>
+(or exported class) under the export&#x27;s own name. For example, <code>import system</code><br>
+exposes <code>System.Process</code>, <code>System.File</code>, and <code>System.System</code>; it does not guess<br>
+a namespace from the lowercase package identifier. <code>import Name as Alias</code><br>
+makes that same export available through the alias:<br>
+the alias replaces the package&#x27;s namespace prefix. For example,<br>
+<code>import time as T</code> exposes <code>Clock</code> as <code>T.Clock</code>, not <code>T.Time.Clock</code>.<br>
+Standard-library classes are instance-based: construct the class before<br>
+calling an instance method, as in <code>Sys.Process().exit(0)</code>, rather than using<br>
+a static-style call such as <code>Sys.Process.exit(0)</code>.<br>
+Imports are top-level only and imported module source cannot define <code>start</code>.<br>
+Duplicate bindings, conflicts with local declarations, and namespaces shared<br>
+by different packages are diagnosed; use explicit aliases to choose local<br>
+binding names (aliases do not make conflicting package definitions compatible).<br>
+The <code>String</code> prelude remains implicit and does not need an import.<br>
+Package manifests are documented in <a href="PACKAGES.html">PACKAGES.md</a> and package<br>
+APIs in <a href="STDLIB.html">STDLIB.md</a>.</p>
+<p>New projects use the direct dependency manifest <code>cwhip-pkg.toml</code> and the generated<br>
+exact graph <code>cwhip-pkg.lock</code>. <code>cwhip-pkg add OWNER/REPO --yes</code> resolves and installs<br>
+the full graph; compilation then needs no environment activation and never<br>
+fetches code. Compilation validates lock freshness, exact dependencies, and<br>
+package integrity. The lock is discovered from the source project&#x27;s root and<br>
+cannot be relocated by package storage overrides. See<br>
+<a href="INSTALLATION.html#project-module-search">project module search</a> for the ordered<br>
+CLI, project, environment, user, and installation package roots. The legacy<br>
+<code>modules.toml</code>, tab-separated registry, <code>--package-path</code>, and<br>
+<code>CWHIP_PACKAGE_PATH</code> lookup mechanisms are no longer supported.<br>
+See <code>import-declaration</code> and <code>module</code>.</p>
+<p><code>include &quot;relative/path.cw&quot;</code> textually inserts source before parsing.<br>
+include paths remain valid for existing code. It is<br>
+only allowed before the top-level <code>start</code>; the including file&#x27;s directory is<br>
+searched first, followed by configured include paths. Each canonical file is<br>
+included once, and included files cannot define <code>start</code>. Unlike imports,<br>
+includes do not create an isolated module namespace. See<br>
+<code>include-directive</code> and the source-loader notes in <a href="GRAMMAR.html">GRAMMAR.md</a>.</p>
+<pre><code>
+// Complete program (requires an installed/bundled `system` package).
+// test: {&quot;stdout&quot;: &quot;&quot;}
+import system
+start {
+    System.Process().exit(0)
+}
+</code></pre>
+<pre><code>
+// Fragment (include is expanded before parsing):
+include &quot;shared/definitions.cw&quot;
+start {
+    print(&quot;included source participates in this compilation unit&quot;)
+}
+</code></pre>
+<h2 id="exceptions">Exceptions</h2>
+<p><code>Exception</code> is a built-in base class with a public <code>message</code> field.<br>
+<code>raise(ClassName(arguments))</code> raises an instance of <code>Exception</code> or a subclass.<br>
+Handlers use <code>except(Type)</code> for a typed catch, <code>except() as name</code> for a<br>
+catch-all whose binding is a <code>String</code> message, or <code>except(Type) as name</code> for<br>
+an exception-object binding. A bare <code>raise()</code> rethrows the active exception<br>
+and is valid only inside a handler. <code>finally</code> runs for normal completion and<br>
+exception propagation. A <code>try</code> needs at least one <code>except</code> or a<br>
+<code>finally</code>; a catch-all must be last. A method may return from any executable<br>
+statement, including nested blocks, branches, loops, and exception handlers.<br>
+Returning runs enclosing <code>finally</code> blocks from innermost to outermost before<br>
+leaving the method. A return inside <code>finally</code> (even in a nested statement)<br>
+is invalid. A non-void method must return a value or raise on every reachable<br>
+path; loops alone do not guarantee this. See <code>try-statement</code> and<br>
+<code>raise-statement</code>. Constructors and destructors remain void-only, and <code>start</code><br>
+still cannot return.</p>
+<pre><code>
+// Complete program: raising and catching a typed exception.
+// test: {&quot;stdout&quot;: &quot;brokenfinished&quot;}
+class Problem : public Exception {
+    Problem(String text) {
+        super Exception(text)
+    }
+}
+
+start {
+    try {
+        raise(Problem(&quot;broken&quot;))
+    } except(Problem) as problem {
+        print(problem.message)
+    } finally {
+        print(&quot;finished&quot;)
+    }
+}
+</code></pre>
+<h2 id="strings-and-their-methods">Strings and their methods</h2>
+<p>String literals construct managed <code>String</code> values. Strings expose a<br>
+read-only <code>length</code> member (the UTF-8 byte length) and methods for appending,<br>
+equality, numeric conversion, byte access, slicing, insertion/removal, search,<br>
+splitting, replacement, trimming, and case conversion. <code>toUpper()</code> and<br>
+<code>toLower()</code> perform ASCII case conversion; <code>trim()</code>/<code>strip()</code> trim ASCII<br>
+whitespace. See the <code>String</code> section of<br>
+<a href="STDLIB.html">STDLIB.md</a> for the exact standard API. String operations use<br>
+UTF-8; byte offsets and character boundaries are not interchangeable.<br>
+Out-of-range indices and invalid conversions can raise exceptions. See<br>
+<code>STRING</code> and <code>postfix</code> for literal and call syntax.</p>
+<pre><code>
+// Complete program: basic string operations.
+// test: {&quot;stdout&quot;: &quot;Hello world11&quot;}
+start {
+    String text = &quot;Hello&quot;
+    text.append(&quot; world&quot;)
+    print(text)
+    print(text.length)
+}
+</code></pre>
+<h2 id="buffer-and-handle"><code>buffer</code> and <code>handle</code></h2>
+<p><code>buffer(length)</code> creates a mutable byte buffer of <code>length</code> zero-filled bytes.<br>
+<code>buffer[byte, ...]</code> creates a new buffer initialized from its elements;<br>
+<code>buffer[]</code> creates an empty buffer. Each element must have type <code>int</code> or<br>
+<code>unsigned</code>, is evaluated once from left to right, and contributes its low 8<br>
+bits, matching indexed writes and <code>append</code>. Bare <code>[ ... ]</code> remains a<br>
+heterogeneous list literal. A buffer has a read-only <code>length</code>, supports<br>
+integer indexing and slicing, and provides <code>resize</code>, <code>clear</code>, and<br>
+<code>append(int-or-unsigned)</code> methods. Indexed values are <code>unsigned</code>; indexed<br>
+assignment accepts <code>int</code> or <code>unsigned</code>. Bounds and allocation failures are<br>
+checked by the runtime.</p>
+<p><code>handle</code> is an opaque, nullable native/runtime handle. It has no language<br>
+operators, members, or automatic ownership policy; a library binding must<br>
+define how a handle is created and released. <code>buffer</code> and <code>handle</code> values can<br>
+be stored in collections and passed through <code>any</code>. See <code>primary</code>,<br>
+<code>index-or-slice-suffix</code>, and <code>postfix</code>.</p>
+<pre><code>
+// Complete program: byte-buffer literals, access, and mutation.
+// test: {&quot;stdout&quot;: &quot;365&quot;}
+start {
+    buffer bytes = buffer[65, 66]
+    bytes.append(67)
+    print(bytes.length)
+    print(bytes[0])
+}
+</code></pre>
+<pre><code>
+// Fragment: native handles are opaque and must be released by their owner.
+handle nativeResource = null
+</code></pre>
+<h2 id="collections">Collections</h2>
+<p>List literals use <code>[...]</code> and may mix supported scalar values, strings,<br>
+type descriptors, class references, lists, dicts, buffers, handles, and<br>
+<code>null</code>. Values are<br>
+stored with dynamic tags, but <code>any</code> is not a type that can be declared for an<br>
+element, variable, field, parameter, or return.<br>
+<code>list.length</code> is read-only; <code>append(value)</code> and <code>resize(int)</code> mutate it.<br>
+Type descriptors are also accepted by <code>append</code>. Although literals accept<br>
+buffers and handles, the current <code>append</code> semantic check does not accept those<br>
+two element types directly. There is no list<br>
+element deletion operation; dicts separately provide <code>remove(string)</code>.<br>
+Indexing and foreach iteration produce values inferred as <code>any</code> internally,<br>
+not declared <code>any</code> variables. A dynamic value can be type-tested, passed,<br>
+printed, or compared with <code>null</code>; extract it into a concrete local before<br>
+using arithmetic. For class members, either extract into a typed local or<br>
+use a checked cast such as <code>(values[0] as Foo).method()</code>.<br>
+The runtime checks extraction.<br>
+List slices return a copy and can include a step:<br>
+<code>values[start:end:step]</code>. Bounds are checked by the runtime.</p>
+<p>Dict literals use <code>{ key: value, ... }</code>. Keys must be strings; values may be<br>
+supported scalar/reference/collection types, including type descriptors.<br>
+Indexed reads and foreach<br>
+iteration produce dynamically tagged values inferred internally as <code>any</code>,<br>
+not legal <code>any</code> declarations. Dicts<br>
+support <code>length</code>, <code>contains(string)</code>, <code>remove(string)</code>, string-key indexing,<br>
+and slicing. Dict slice bounds are integer positions in iteration order;<br>
+stepped dict slices are not supported.</p>
+<p>In the current runtime implementation, dict keys are hashed bytewise using<br>
+64-bit FNV-1a (offset basis <code>14695981039346656037</code>, prime <code>1099511628211</code>).<br>
+The hash index uses a power-of-two, open-addressed bucket table with linear<br>
+probing; the table grows and is rebuilt to keep its load at or below one<br>
+half. After a hash match, key byte length and byte contents are compared.<br>
+Entries themselves are stored in insertion order, so current iteration and<br>
+dict slicing follow insertion order. These are implementation details, not a<br>
+stable complexity guarantee. See <code>list-literal</code>, <code>dict-literal</code>,<br>
+<code>index-or-slice-suffix</code>, <code>foreach-statement</code>, and <a href="STDLIB.html">STDLIB.md</a>.</p>
+<pre><code>
+// Complete program: type-check and extract an indexed collection value.
+// test: {&quot;stdout&quot;: &quot;42&quot;}
+start {
+    list values = [42, &quot;text&quot;]
+    if (values[0] is int) {
+        int number = values[0]
+        print(number)
+    }
+}
+</code></pre>
+<h2 id="threads-and-concurrency-semantics">Threads and concurrency semantics</h2>
+<p>Thread support is provided through classes and native bindings, not a<br>
+threading keyword. The bundled runtime starts OS threads for thread objects<br>
+and dispatches their <code>run()</code> method. Cwhip-generated code executes under one<br>
+global runtime lock, so two Cwhip bodies do not execute managed code in<br>
+parallel. Blocking native operations such as <code>join()</code> and semaphore waits<br>
+release that lock, allowing another Cwhip thread to run. This provides<br>
+concurrency around waits, not parallel execution of Cwhip instructions.<br>
+The relevant source forms are <code>class-declaration</code>, <code>method-declaration</code>, and<br>
+<code>postfix</code>; none is a dedicated thread construct.</p>
+<p>Use the standard synchronization package for its supported thread,<br>
+semaphore, mutex, and condition facilities; see <a href="STDLIB.html">STDLIB.md</a>.<br>
+Native handles and synchronization resources require the library&#x27;s documented<br>
+lifetime operations. Guard shared state with the appropriate synchronization<br>
+primitive even though execution is serialized: native calls can block and<br>
+release the global lock.</p>
+<pre><code>
+// Fragment: requires a visible `Thread` base class supplied by declarations
+// or a package. Thread operations are native bindings, not built-in syntax.
+class Worker : Thread {
+    void run() {
+        print(&quot;worker&quot;)
+    }
+}
+</code></pre>
+<h2 id="compiler-and-executable-backend">Compiler and executable backend</h2>
+<p>The compiler lexes and parses Cwhip source, performs semantic analysis, emits<br>
+textual LLVM IR, and invokes Clang to compile and link the executable. Use<br>
+<code>--check-only</code> to run parsing and semantic checks without code generation, or<br>
+<code>--emit-llvm FILE</code> to also save the generated IR. The full command-line<br>
+interface is documented in <a href="cwhip.1">cwhip(1)</a>.<br>
+The compiler does not link the LLVM C++ API or provide a configurable LLVM<br>
+optimization pipeline; its Clang invocation is driven through the host POSIX<br>
+shell.</p>
+<p>The implemented backend covers the language constructs in this reference:<br>
+scalar and String values, collections with tagged dynamic values, control<br>
+flow, exceptions, class construction and methods, inheritance (including<br>
+secondary and virtual bases), virtual dispatch, and native/inline-C bindings.<br>
+Printing accepts a single supported value or a double-quoted positional or<br>
+named format call. For how the source, parser, runtime, and tests are<br>
+organized, see <a href="CWHIP-LANGUAGE-NOTES.html">CWHIP-LANGUAGE-NOTES.md</a> and the<br>
+<a href="README.html">test guide</a>.</p>
+<p>Managed objects and collection values use a precise, non-moving,<br>
+stop-the-world mark/sweep collector. Generated functions publish explicit<br>
+root frames; arbitrary native stack words are not scanned. The runtime<br>
+serializes Cwhip execution under a global lock. OS threads can make progress<br>
+while another thread waits in a blocking native operation, but Cwhip<br>
+instructions do not execute in parallel. Exceptions use the host C ABI&#x27;s<br>
+<code>setjmp</code>/<code>longjmp</code> mechanism rather than LLVM landing pads.</p>
+<p>Known language/backend boundaries include no free-standing functions, no<br>
+automatic user-object <code>toString()</code> dispatch, no direct String index/slice<br>
+syntax, no Unicode code-point operations, and no native-ABI lowering for<br>
+<code>any</code>. There is no general reflection API beyond <code>type(value)</code>. String<br>
+methods, Cwhip class methods, and C-bound methods described elsewhere remain<br>
+available; these limitations should not be confused with the obsolete claim<br>
+that formatted expressions or method overloading are unsupported.</p>
+<h2 id="garbage-collection-and-destruction">Garbage collection and destruction</h2>
+<p>Managed objects, strings, and collections are allocated on a runtime-managed<br>
+heap. The collector traces live roots (including locals and collection<br>
+references) and reclaims unreachable objects. A class <code>destroy { ... }</code><br>
+definition is used as a finalizer when the collector reclaims an instance;<br>
+collection timing is not deterministic, so finalizers should not be used as a<br>
+substitute for explicit resource management. Finalizers must not let<br>
+exceptions escape.<br>
+Explicit <code>object.destroy()</code> runs the method but does not immediately reclaim<br>
+the object&#x27;s storage. It marks the object destroyed before running the<br>
+destructor chain; a repeated call or later use raises a catchable runtime<br>
+exception, and GC will not run the destructor chain a second time.</p>
+<p>Derived and base destruction is handled by the runtime destructor chain,<br>
+most-derived first and then through its bases. Unreachable objects are<br>
+finalized during garbage collection, whose timing is nondeterministic.<br>
+Resources requiring prompt release should be closed explicitly through their<br>
+library API. See <code>destructor-declaration</code> and <code>postfix</code>, and<br>
+<a href="STDLIB.html">STDLIB.md</a>.</p>
+<pre><code>
+// Fragment: finalizer timing is controlled by garbage collection.
+class Resource {
+    destroy {
+        print(&quot;resource became unreachable&quot;)
+    }
+}
+</code></pre>
+<h2 id="native-bindings-for-library-authors">Native bindings for library authors</h2>
+<p>Declare a method in a class and define it outside the class with a <code>from</code><br>
+binding:</p>
+<pre><code>
+// Fragment: declaration and matching external C ABI binding.
+class System {
+    String lastError()
+}
+
+String System.lastError() from &quot;cwhip_system_last_error&quot;
+</code></pre>
+<p>The external symbol must be linkable by Clang and use the runtime&#x27;s expected<br>
+ABI. Primitive parameters/results use the corresponding C/LLVM scalar<br>
+representation (<code>int</code> is signed 64-bit, <code>bool</code> is 1-bit in IR, <code>float</code> is double,<br>
+<code>unsigned</code> is 64-bit); strings, lists, dicts, buffers, handles, and class<br>
+references are pointer-based. <code>void</code> is allowed only as a method result.<br>
+Declarations and definitions must have matching names, parameter types, and<br>
+return types, and native definitions must be in the same compilation unit<br>
+and namespace as their class. See <code>method-declaration</code> and<br>
+<code>out-of-line-definition</code>.</p>
+<p><code>inline { ... }</code> embeds raw C in a method, constructor, destructor, or start<br>
+block. <code>inline (type name, ...)</code> captures existing locals/parameters first,<br>
+then accessible instance fields of the current receiver. There are no static<br>
+field captures, and <code>start</code> has no instance receiver. Capture types must match<br>
+exactly; inaccessible, unavailable, and ambiguous inherited fields are errors.<br>
+Use <code>type .field</code> to bypass a local that shadows a field, or <code>type Base.field</code><br>
+and <code>type Base.OtherBase.field</code> to select an inheritance path. Qualification<br>
+uses the existing implicit-this/base access rules, not arbitrary object<br>
+expressions. The final field name becomes the C parameter name; two captures<br>
+with the same final name are rejected even if their paths differ.</p>
+<p>Captures are mutable references to the actual storage slot, not copies.<br>
+For example, <code>*count += 1</code> in C updates the captured Cwhip <code>int</code>. Managed<br>
+reference slots remain traced through rooted locals or the rooted receiver;<br>
+buffers use <code>CwhipBuffer <strong></code>, other managed references use <code>void </strong></code>.<br>
+Primary, secondary, repeated nonvirtual, and shared virtual bases use the same<br>
+receiver adjustment as Cwhip field assignments. The declare-and-capture<br>
+sugar below still declares a <strong>local</strong>, never a field.</p>
+<pre><code>
+// Fragment: the declared local is implicitly captured by this inline C block.
+int result inline {
+    *result = 42;
+}
+</code></pre>
+<pre><code>
+class Counter {
+    // test: {&quot;stdout&quot;: &quot;101&quot;}
+    int count
+    Counter() { count = 0 }
+    void add(int count) {
+        inline (int .count) { *count += 1; }
+        // The parameter still shadows the field in ordinary unqualified access.
+        print(count)
+    }
+}
+start {
+    Counter counter = Counter()
+    counter.add(10)
+    print(counter.count) // 1
+}
+</code></pre>
+<h3 id="application-facing-inline-api">Application-facing inline API</h3>
+<p>Application developers do not need runtime implementation source. Prefer the<br>
+Cwhip standard-library class wrappers for ordinary code. Inline C automatically<br>
+receives the installed, supported opaque C facade <code>cwhip/Stdlib.h</code>; it exposes<br>
+the existing native implementations of the eight shipped standard packages<br>
+without inspecting private objects. See <a href="STDLIB.html#inline-c-api">the standard library C API</a><br>
+for the symbol mapping, errors, lifetime rules, and limitations. This is a real<br>
+C bridge to those functions, <strong>not</strong> a facility for calling arbitrary Cwhip<br>
+methods or wrapper constructors from C.</p>
+<p>Generated shims also include <code>stdlib.h</code>, <code>stdio.h</code>, <code>string.h</code>, <code>errno.h</code>,<br>
+<code>ctype.h</code>, <code>stdint.h</code>, <code>limits.h</code>, and <code>unistd.h</code> once per translation unit,<br>
+before all C bodies. Their normal C APIs are available without user includes.<br>
+<code>unistd.h</code> is <strong>POSIX-only</strong>: the current compiler/runtime build requires a<br>
+POSIX host/target with that header, and CMake rejects its absence. If the Clang<br>
+target lacks any required header, shim compilation fails with a diagnostic;<br>
+headers are never silently omitted. The compiler uses its configured native<br>
+Clang target, not a separate inline-C cross-compilation target.</p>
+<p>Inline C must preserve the language&#x27;s value representation and GC invariants.<br>
+<code>malloc</code> memory is not managed Cwhip storage; do not put it into a String,<br>
+collection, buffer, or class reference slot. Raw native resources belong in<br>
+<code>handle</code> slots and require explicit cleanup. Do not retain capture addresses<br>
+or string-conversion pointers beyond the block, or leave the raw body with<br>
+<code>return</code>, <code>longjmp</code>, or another transfer that bypasses shim cleanup.<br>
+Legacy runtime declarations retained by the capture shim for compatibility<br>
+are not an application API promise; do not depend on private layouts or other<br>
+<code>Runtime*.h</code> interfaces.</p>
+</main>
+<footer>
+  <p>Cwhip. Documentation source of truth is the repository.</p>
+</footer>
+<script src="app.js"></script>
+</body>
+</html>

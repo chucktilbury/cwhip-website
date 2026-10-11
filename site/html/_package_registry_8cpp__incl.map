@@ -1,0 +1,25 @@
+<map id="/home/chuck/Src/cwhip/src/PackageRegistry.cpp" name="/home/chuck/Src/cwhip/src/PackageRegistry.cpp">
+<area shape="rect" id="Node000001" title="Reads and resolves Cwhip package manifests." alt="" coords="683,5,865,45"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,93,204,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="683,40,216,94,216,89,682,35"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="227,93,427,119"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="683,45,406,94,405,88,682,40"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="451,93,537,119"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="708,48,549,92,548,87,706,43"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="561,93,627,119"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="732,48,634,90,632,85,730,43"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="651,93,724,119"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="755,48,712,86,709,82,751,44"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="749,93,799,119"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="777,46,777,79,771,79,771,46"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="823,93,882,119"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="795,44,833,82,829,85,791,47"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="906,93,949,119"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="812,43,895,85,892,90,810,48"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="973,93,1047,119"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="831,43,964,87,962,92,830,48"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="1072,93,1159,119"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="856,43,1059,89,1058,94,855,48"/>
+<area shape="rect" id="Node000012" title=" " alt="" coords="1183,93,1298,119"/>
+<area shape="poly" id="edge11_Node000001_Node000012" title=" " alt="" coords="866,39,1170,90,1169,95,865,45"/>
+</map>

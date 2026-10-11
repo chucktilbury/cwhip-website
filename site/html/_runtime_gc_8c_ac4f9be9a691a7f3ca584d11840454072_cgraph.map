@@ -1,0 +1,9 @@
+<map id="mark_roots" name="mark_roots">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,42,101,67"/>
+<area shape="rect" id="Node000002" href="$_runtime_gc_8c.html#ab1fa05299839f43e6de9e10ad330fdef" title=" " alt="" coords="149,5,311,45"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="101,44,135,38,136,44,102,49"/>
+<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#a9d1fa65110c2b13d14763268a3fdc6c9" title=" " alt="" coords="179,70,281,95"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="102,60,165,70,165,75,101,65"/>
+<area shape="rect" id="Node000004" href="$_runtime_gc_8c.html#a8277e62b1442cc905bbb82cab02e10f4" title=" " alt="" coords="359,70,528,95"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="282,80,345,80,345,85,282,85"/>
+</map>
