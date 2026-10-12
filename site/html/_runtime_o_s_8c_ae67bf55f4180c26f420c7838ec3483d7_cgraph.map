@@ -1,9 +1,0 @@
-<map id="cwhip_random_fill" name="cwhip_random_fill">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,70,147,95"/>
-<area shape="rect" id="Node000002" href="$_runtime_o_s_8c.html#a8e8cf6efb5c8a7c6b619826584dd417a" title=" " alt="" coords="207,5,365,45"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="123,67,199,46,200,52,124,73"/>
-<area shape="rect" id="Node000003" href="$_runtime_o_s_8c.html#a37b47635e6fad311dd091b6227725e8c" title=" " alt="" coords="195,70,377,95"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="147,80,181,80,181,85,147,85"/>
-<area shape="rect" id="Node000004" href="$_runtime_o_s_8c.html#a06a272db2627fccc4e0affaee38ecf0f" title=" " alt="" coords="213,119,359,145"/>
-<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="131,93,219,114,217,119,130,98"/>
-</map>

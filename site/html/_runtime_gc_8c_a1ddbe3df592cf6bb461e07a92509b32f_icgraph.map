@@ -1,7 +1,0 @@
-<map id="cwhip_map_set" name="cwhip_map_set">
-<area shape="rect" id="Node000001" title=" " alt="" coords="391,5,513,31"/>
-<area shape="rect" id="Node000002" href="$_runtime_gc_8c.html#a3da849c1539ca9bb7cc86838bd9e3295" title=" " alt="" coords="187,5,343,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="377,21,343,21,343,15,377,15"/>
-<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#ad3c93ffaa17cfad1d5dcdc6028763cb2" title=" " alt="" coords="5,5,139,31"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="173,21,139,21,139,15,173,15"/>
-</map>

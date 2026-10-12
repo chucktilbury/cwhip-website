@@ -1,7 +1,0 @@
-<map id="mutex_acquire_locked_guard" name="mutex_acquire_locked_guard">
-<area shape="rect" id="Node000001" title=" " alt="" coords="216,23,384,63"/>
-<area shape="rect" id="Node000002" href="$_runtime_threads_8c.html#a5f4b6fdc0989f9105fb160f7bb589d46" title=" " alt="" coords="5,5,168,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="201,34,168,30,169,25,202,29"/>
-<area shape="rect" id="Node000003" href="$_runtime_threads_8c.html#af76976d9ddb50662170355678700071f" title=" " alt="" coords="15,55,158,80"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="202,57,158,62,158,57,202,52"/>
-</map>

@@ -1,8 +1,0 @@
-<map id="callback_transfer_remove" name="callback_transfer_remove">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,196,31"/>
-<area shape="rect" id="Node000002" href="$_runtime_gc_8c.html#a5654c53440dc8d5661939d7b61c916b6" title=" " alt="" coords="463,5,576,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="196,15,449,15,449,21,196,21"/>
-<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#a0c5801f4c0a1b16ebcd637fa0d06b12f" title=" " alt="" coords="244,31,415,56"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="197,26,231,30,230,35,196,31"/>
-<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="415,29,449,25,450,30,415,35"/>
-</map>

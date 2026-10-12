@@ -1,9 +1,0 @@
-<map id="cwhip::anonymous_namespace{PackageRegistry.cpp}::PackageManifest" name="cwhip::anonymous_namespace{PackageRegistry.cpp}::PackageManifest">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,183,297,223"/>
-<area shape="rect" id="Node000002" title=" " alt="" coords="39,95,176,120"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="121,131,145,181,140,184,116,133"/>
-<area shape="rect" id="Node000003" title=" " alt="" coords="200,95,287,120"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="225,131,172,184,168,181,221,128"/>
-<area shape="rect" id="Node000004" title=" " alt="" coords="174,5,313,45"/>
-<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="246,59,246,94,241,94,241,59"/>
-</map>

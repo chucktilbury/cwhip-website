@@ -1,9 +1,0 @@
-<map id="cwhip_time_monotonic_milliseconds" name="cwhip_time_monotonic_milliseconds">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,35,179,75"/>
-<area shape="rect" id="Node000002" href="$_runtime_o_s_8c.html#abe1bc4b090fa5ffe42c3c28a978025ef" title=" " alt="" coords="227,42,372,67"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="179,52,213,52,213,57,179,57"/>
-<area shape="rect" id="Node000003" href="$_runtime_o_s_8c.html#a8e8cf6efb5c8a7c6b619826584dd417a" title=" " alt="" coords="433,5,590,45"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="372,42,418,35,419,41,372,47"/>
-<area shape="rect" id="Node000004" href="$_runtime_o_s_8c.html#a37b47635e6fad311dd091b6227725e8c" title=" " alt="" coords="420,70,603,95"/>
-<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="372,62,407,66,406,71,372,67"/>
-</map>

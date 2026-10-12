@@ -1,7 +1,0 @@
-<map id="deadline_passed" name="deadline_passed">
-<area shape="rect" id="Node000001" title=" " alt="" coords="252,31,383,56"/>
-<area shape="rect" id="Node000002" href="$_runtime_process_async_8c.html#a5afb788e11afabe012b1ac7b71f54729" title=" " alt="" coords="5,5,204,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="238,37,204,32,204,27,239,31"/>
-<area shape="rect" id="Node000003" href="$_runtime_process_async_8c.html#a918b4cd74e11078f9e7e6a5b0e18f371" title=" " alt="" coords="6,55,203,80"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="239,55,204,59,203,54,238,50"/>
-</map>

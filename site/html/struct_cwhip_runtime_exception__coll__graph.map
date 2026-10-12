@@ -1,9 +1,0 @@
-<map id="CwhipRuntimeException" name="CwhipRuntimeException">
-<area shape="rect" id="Node000001" title=" " alt="" coords="150,108,331,133"/>
-<area shape="rect" id="Node000002" title=" " alt="" coords="5,5,185,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="117,38,169,82,213,105,211,110,166,86,114,42"/>
-<area shape="rect" id="Node000003" title=" " alt="" coords="210,5,271,31"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="243,45,243,108,238,108,238,45"/>
-<area shape="rect" id="Node000004" title=" " alt="" coords="302,5,369,31"/>
-<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="331,45,322,66,308,86,291,100,273,110,270,105,288,95,304,82,317,63,326,43"/>
-</map>

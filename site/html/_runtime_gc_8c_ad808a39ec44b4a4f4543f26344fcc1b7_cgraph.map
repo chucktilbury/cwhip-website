@@ -1,8 +1,0 @@
-<map id="callback_context_check" name="callback_context_check">
-<area shape="rect" id="Node000001" title=" " alt="" coords="5,5,183,31"/>
-<area shape="rect" id="Node000002" href="$_runtime_gc_8c.html#a5654c53440dc8d5661939d7b61c916b6" title=" " alt="" coords="449,5,563,31"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="183,15,436,15,436,21,183,21"/>
-<area shape="rect" id="Node000003" href="$_runtime_gc_8c.html#a0c5801f4c0a1b16ebcd637fa0d06b12f" title=" " alt="" coords="231,31,401,56"/>
-<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="184,26,217,29,217,35,183,31"/>
-<area shape="poly" id="edge3_Node000003_Node000002" title=" " alt="" coords="401,29,436,25,436,30,402,35"/>
-</map>

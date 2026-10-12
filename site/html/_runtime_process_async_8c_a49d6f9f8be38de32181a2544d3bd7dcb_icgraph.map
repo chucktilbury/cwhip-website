@@ -1,7 +1,0 @@
-<map id="raise_descriptor" name="raise_descriptor">
-<area shape="rect" id="Node000001" title=" " alt="" coords="357,13,484,38"/>
-<area shape="rect" id="Node000002" href="$_runtime_process_async_8c.html#afe1de10beb2923c1597e5040487a6b1b" title=" " alt="" coords="216,13,309,38"/>
-<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="344,28,310,28,310,23,344,23"/>
-<area shape="rect" id="Node000003" href="$_runtime_process_async_8c.html#a2d00f2e7ead01f9237265c730fc4a2e0" title=" " alt="" coords="5,5,168,45"/>
-<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="202,28,168,28,168,23,202,23"/>
-</map>
