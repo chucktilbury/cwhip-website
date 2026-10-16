@@ -4,7 +4,7 @@ A statically typed language with classes, inheritance, managed strings and colle
 
 The compiler frontend is written in C++17; the runtime is in C. Source files use the `.cw` extension. The compiler command is `cwhip`.
 
-[Go to working areas](https://github.com/chucktilbury/cwhip/wiki)  
+[Go to working areas](https://github.com/chucktilbury/cwhip-workspace/wiki)  
 *(placeholder destination — discussions, announcements, or other non-documentation tasks)*
 
 ## Quick start
