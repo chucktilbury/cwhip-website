@@ -162,7 +162,7 @@ TEMPLATE = """<!DOCTYPE html>
     <a href="{root}index.html">Home</a>
     <a href="{root}docs.html">Documentation</a>
     <a href="{root}about-site.html">About this site</a>
-    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
+    <a href="https://github.com/chucktilbury/cwhip-workspace">GitHub</a>
   </nav>
 </header>
 <main>
