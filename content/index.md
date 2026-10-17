@@ -13,7 +13,7 @@ The compiler frontend is written in C++17; the runtime is in C. Source files use
 2. Compile a program: `./bin/cwhip path/to/program.cw -o build/program`
 3. Run it: `./build/program`
 
-See the [documentation](docs.html) for full installation details and the language reference.
+Start with the [Getting Started documentation](docs.html#getting-started), or browse the documentation for installation details and the language reference.
 
 ## Language highlights
 

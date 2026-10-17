@@ -2,7 +2,7 @@
 
 The builder generates five sections from component-owned Markdown:
 
-- Getting Started: workspace `doc/FIRST-PROGRAM.md`.
+- Getting Started: cwhip repository `doc/GETTING_STARTED.md` (workspace `compiler/doc/GETTING_STARTED.md`) and workspace `doc/FIRST-PROGRAM.md`.
 - Language & Compiler: `compiler/doc/`, excluding the obsolete integrated CEDIT and CDBG guides.
 - Editor: `editor/CEDIT.md`, `editor/README.md`, and `editor/doc/`.
 - Debugger: `debugger/CDBG.md`, `debugger/README.md`, and `debugger/doc/`.
