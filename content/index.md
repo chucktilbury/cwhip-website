@@ -22,4 +22,14 @@ Start with the [Getting Started documentation](docs.html#getting-started), or br
 - Managed strings and collections (`list`, `dict`).
 - Exceptions and native bindings.
 
+## Applications
+
+Explore the [Editor](docs.html#editor), [Debugger](docs.html#debugger), and
+[Macro Processor (cmacros)](docs.html#cmacros) documentation.
+`cmacros` is a standalone command-line macro processor written in Cwhip,
+not a compiler pipeline stage or GUI application. Its documentation includes
+build instructions, the language contract, diagnostics, and original examples
+with source files and an output-checking runner. Binary releases and icons
+are deferred.
+
 [Documentation](docs.html) · [About this site](about-site.html) · [GitHub](https://github.com/chucktilbury/cwhip)

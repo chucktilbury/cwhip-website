@@ -21,6 +21,7 @@ SECTIONS = (
     ("compiler", "Language & Compiler"),
     ("editor", "Editor"),
     ("debugger", "Debugger"),
+    ("cmacros", "Macro Processor (cmacros)"),
     ("workflow", "Contributor Workflow"),
 )
 LINK = re.compile(r'(!?)\[([^\]]*)\]\(([^)\n]+)\)')
@@ -243,6 +244,14 @@ def build(workspace=None, docs_dir=None, output_dir=None):
             for page in pages:
                 add(page, Path(component) / page.relative_to(root).with_suffix(".html"), component)
             aliases[(compiler_doc / guide).resolve()] = (root / guide).resolve()
+        macro_root = workspace / "cmacros"
+        macro_pages = ["README.md", "doc/BUILD.md", "doc/LANGUAGE.md",
+                       "doc/DIAGNOSTICS.md", "examples/README.md"]
+        for name in macro_pages:
+            source = macro_root / name
+            if not source.is_file():
+                raise ValueError(f"Required cmacros documentation missing: {source}")
+            add(source, Path("cmacros") / Path(name).with_suffix(".html"), "cmacros")
         first = workspace / "doc/FIRST-PROGRAM.md"
         if not first.is_file():
             raise ValueError(f"Required first-program guide missing: {first}")
@@ -262,13 +271,15 @@ def build(workspace=None, docs_dir=None, output_dir=None):
     def repository_link(source):
         roots = (
             [(workspace / component, repo) for component, repo in
-             (("compiler", "cwhip"), ("editor", "cedit"), ("debugger", "cdbg"))]
+             (("compiler", "cwhip"), ("editor", "cedit"), ("debugger", "cdbg"),
+              ("cmacros", "cmacros"))]
             + [(workspace, "cwhip-workspace")] if workspace else
             [(compiler_doc.parent, "cwhip")]
         )
         for root, repo in roots:
             if root in source.parents:
-                return (f"https://github.com/chucktilbury/{repo}/blob/main/"
+                kind = "tree" if source.is_dir() else "blob"
+                return (f"https://github.com/chucktilbury/{repo}/{kind}/main/"
                         + quote(source.relative_to(root).as_posix()))
         raise ValueError(f"No repository mapping for {source}")
 
@@ -281,10 +292,12 @@ def build(workspace=None, docs_dir=None, output_dir=None):
             parsed = urlsplit(target)
             if parsed.scheme or parsed.netloc or not parsed.path:
                 return match[0]
+            suffix = ("?" + parsed.query if parsed.query else "")
+            suffix += "#" + parsed.fragment if parsed.fragment else ""
             local = (source.parent / unquote(parsed.path)).resolve()
             alias = aliases.get(local)
             if isinstance(alias, str):
-                return f"{image}[{label}]({alias}{'#' + parsed.fragment if parsed.fragment else ''})"
+                return f"{image}[{label}]({alias}{suffix})"
             local = alias or local
             # Site-owned links name generated pages rather than source files.
             if source.parent == CONTENT and parsed.path.endswith(".html"):
@@ -294,23 +307,20 @@ def build(workspace=None, docs_dir=None, output_dir=None):
             if local.is_dir():
                 readme = local / "README.md"
                 if not readme.is_file():
-                    raise ValueError(f"{source}: directory link has no README.md: {target}")
+                    href = repository_link(local)
+                    return f"{image}[{label}]({href}{suffix})"
                 local = readme
             if local.suffix.lower() == ".md":
                 if local not in sources:
                     href = repository_link(local)
-                    return f"{image}[{label}]({href}{'#' + parsed.fragment if parsed.fragment else ''})"
+                    return f"{image}[{label}]({href}{suffix})"
                 dest = sources[local]
             else:
                 asset_path = local.relative_to(workspace if workspace else compiler_doc.parent)
                 dest = Path("assets") / asset_path
                 assets[local] = dest
             href = quote(relative(dest, page), safe="/.-")
-            if parsed.query:
-                href += "?" + parsed.query
-            if parsed.fragment:
-                href += "#" + parsed.fragment
-            return f"{image}[{label}]({href})"
+            return f"{image}[{label}]({href}{suffix})"
 
         for line in text.splitlines():
             if line.lstrip().startswith("```"):
@@ -327,7 +337,24 @@ def build(workspace=None, docs_dir=None, output_dir=None):
     rendered = {}
     for source, page in sources.items():
         raw = source.read_text(encoding="utf-8")
-        rendered[source] = (raw, md_to_html(rewrite(raw, source, page)))
+        if workspace and source == (workspace / "cmacros/examples/README.md").resolve():
+            examples = source.parent
+            runner = examples / "run_examples.py"
+            license_file = examples / "original-passing/LICENSE"
+            for required in (runner, license_file):
+                if not required.is_file():
+                    raise ValueError(f"Required cmacros example file missing: {required}")
+            files = [runner, license_file]
+            files += sorted((examples / "original-passing").glob("*.txt"))
+            files += sorted((examples / "expected").glob("*.out"))
+            raw += "\n\n## Example source files\n\n"
+            raw += "\n".join(
+                f"- [{p.relative_to(examples).as_posix()}]({quote(p.relative_to(examples).as_posix())})"
+                for p in files)
+        body = md_to_html(rewrite(raw, source, page))
+        if workspace and source in sections["cmacros"]:
+            body += f'\n<p><a href="{repository_link(source)}">Canonical source on GitHub</a></p>'
+        rendered[source] = (raw, body)
     reserved = set(sources) | set(assets)
     if any(output == root or output in root.parents for root in source_roots):
         raise ValueError("Output must not replace a documentation source directory")
@@ -335,7 +362,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
         raise ValueError("Output must not contain documentation inputs")
     protected = [CONTENT, compiler_doc]
     if workspace:
-        protected += [workspace / name for name in ("editor", "debugger", "doc")]
+        protected += [workspace / name for name in ("editor", "debugger", "cmacros", "doc")]
     if output != ROOT / "site" and any(root in output.parents for root in protected):
         raise ValueError("Output must be outside documentation source trees")
 
@@ -419,7 +446,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workspace", type=Path, help="Root containing compiler/, editor/, debugger/, doc/")
+    parser.add_argument("--workspace", type=Path, help="Root containing compiler/, editor/, debugger/, cmacros/, doc/")
     parser.add_argument("--docs-dir", type=Path, help="Compiler-only Markdown directory (partial site)")
     parser.add_argument("--output-dir", type=Path, help="Generated output (default: website/site)")
     args = parser.parse_args()

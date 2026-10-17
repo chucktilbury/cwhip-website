@@ -29,6 +29,21 @@ class BuilderTests(unittest.TestCase):
         self.write("editor/doc/BUILD.md", "# Editor build\n\n[Guide](../CEDIT.md)\n")
         self.write("debugger/CDBG.md", "# Debugger guide\n")
         self.write("debugger/doc/BUILD.md", "# Debugger build\n")
+        self.write("cmacros/README.md",
+                   "# cmacros\n\n[Language](doc/LANGUAGE.md#names)\n\n"
+                   "[Original inputs](examples/original-passing)\n\n"
+                   "[Examples](examples/README.md#run)\n")
+        self.write("cmacros/doc/BUILD.md", "# Macro build\n")
+        self.write("cmacros/doc/LANGUAGE.md", "# Macro language\n\n## Names\n")
+        self.write("cmacros/doc/DIAGNOSTICS.md", "# Macro diagnostics\n")
+        self.write("cmacros/examples/README.md",
+                   "# Original macros examples\n\n## Run\n\n"
+                   "[Upstream](https://github.com/chucktilbury/macros/tree/commit/tests/passing)\n")
+        self.write("cmacros/examples/run_examples.py", 'print("runner")\n')
+        self.write("cmacros/examples/original-passing/LICENSE", "MIT attribution\n")
+        self.write("cmacros/examples/original-passing/define.txt",
+                   "# Not Markdown\n[x](missing.md)\n.define X {<tag>}\n@X\n")
+        self.write("cmacros/examples/expected/define.out", "<tag>\n")
         self.write("doc/FIRST-PROGRAM.md", "# First program\n\n[Build](BUILD.md)\n")
         self.write("doc/BUILD.md", "# Workflow build\n\n[Compiler](../compiler/doc/INSTALLATION.md#build)\n")
 
@@ -51,6 +66,7 @@ class BuilderTests(unittest.TestCase):
             self.assertIn(title, toc)
         self.assertIn("Editor build", (self.output / "editor/doc/BUILD.html").read_text())
         self.assertIn("Debugger build", (self.output / "debugger/doc/BUILD.html").read_text())
+        self.assertIn("Macro build", (self.output / "cmacros/doc/BUILD.html").read_text())
         self.assertIn("Workflow build", (self.output / "workflow/BUILD.html").read_text())
         getting_started = (self.output / "getting-started/index.html").read_text()
         self.assertIn("<h1 id=\"getting-started\">Getting started</h1>", getting_started)
@@ -67,6 +83,64 @@ class BuilderTests(unittest.TestCase):
                       (self.output / "INSTALLATION.html").read_text())
         self.assertIn('href="editor/CEDIT.html"', (self.output / "CEDIT.html").read_text())
         self.assertIn("location.hash", (self.output / "CEDIT.html").read_text())
+
+    def test_cmacros_navigation_raw_examples_and_provenance(self):
+        self.run_build()
+        toc = (self.output / "docs.html").read_text()
+        home = (self.output / "index.html").read_text()
+        self.assertIn('href="docs.html#cmacros"', home)
+        self.assertIn('href="cmacros/README.html"', toc)
+        self.assertIn('href="cmacros/examples/README.html#example-source-files"', toc)
+        readme = (self.output / "cmacros/README.html").read_text()
+        self.assertIn('href="doc/LANGUAGE.html#names"', readme)
+        self.assertIn('href="examples/README.html#run"', readme)
+        self.assertIn("https://github.com/chucktilbury/cmacros/tree/main/examples/original-passing",
+                      readme)
+        guide = (self.output / "cmacros/examples/README.html").read_text()
+        self.assertIn("https://github.com/chucktilbury/macros/tree/commit/tests/passing", guide)
+        self.assertIn("https://github.com/chucktilbury/cmacros/blob/main/examples/README.md", guide)
+        for name in ("run_examples.py", "original-passing/LICENSE",
+                     "original-passing/define.txt", "expected/define.out"):
+            self.assertIn(f'href="../../assets/cmacros/examples/{name}"', guide)
+            self.assertEqual((self.output / "assets/cmacros/examples" / name).read_bytes(),
+                             (self.workspace / "cmacros/examples" / name).read_bytes())
+        self.assertFalse((self.output / "cmacros/examples/original-passing/define.html").exists())
+        check_site(self.output)
+
+    def test_cmacros_required_inputs_fail_before_output(self):
+        for name in ("README.md", "doc/BUILD.md", "doc/LANGUAGE.md",
+                     "doc/DIAGNOSTICS.md", "examples/README.md",
+                     "examples/run_examples.py", "examples/original-passing/LICENSE"):
+            with self.subTest(name=name):
+                source = self.workspace / "cmacros" / name
+                text = source.read_text()
+                source.unlink()
+                with self.assertRaisesRegex(ValueError, "Required cmacros"):
+                    self.run_build()
+                self.assertFalse(self.output.exists())
+                source.write_text(text)
+
+    def test_cmacros_repository_mapping_and_link_suffixes(self):
+        self.write("cmacros/other/README.md", "# Other source\n")
+        self.write("cmacros/doc/BUILD.md",
+                   "# Macro build\n\n[Language](LANGUAGE.md?view=full#names)\n\n"
+                   "[Other](../other/README.md?plain=1#other-source)\n\n"
+                   "[Inputs](../examples/original-passing?plain=1#files)\n")
+        self.run_build()
+        page = (self.output / "cmacros/doc/BUILD.html").read_text()
+        self.assertIn('href="LANGUAGE.html?view=full#names"', page)
+        self.assertIn("https://github.com/chucktilbury/cmacros/blob/main/other/README.md"
+                      "?plain=1#other-source", page)
+        self.assertIn("https://github.com/chucktilbury/cmacros/tree/main/examples/"
+                      "original-passing?plain=1#files", page)
+
+    def test_cmacros_stale_assets_removed_in_partial_build(self):
+        self.run_build()
+        with contextlib.redirect_stdout(io.StringIO()):
+            build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
+        self.assertFalse((self.output / "cmacros/README.html").exists())
+        self.assertFalse((self.output / "assets/cmacros/examples/run_examples.py").exists())
+        check_site(self.output)
 
     def test_authoritative_aliases(self):
         self.write("compiler/doc/INSTALLATION.md",
@@ -141,6 +215,10 @@ class BuilderTests(unittest.TestCase):
         check_site(self.output)
         self.assertTrue((self.output / "compiler/GETTING_STARTED.html").is_file())
         self.assertIn("complete workspace", (self.output / "docs.html").read_text())
+        toc = (self.output / "docs.html").read_text()
+        self.assertIn('id="cmacros"', toc)
+        self.assertNotIn('href="cmacros/', toc)
+        self.assertIn('href="docs.html#cmacros"', (self.output / "index.html").read_text())
 
     def test_legacy_staging_fallback(self):
         stage = self.root / "legacy/doc"
@@ -157,7 +235,7 @@ class BuilderTests(unittest.TestCase):
 
     def test_output_cannot_overwrite_source(self):
         for output in (self.workspace, self.workspace / "compiler/doc",
-                       self.workspace / "editor/generated"):
+                       self.workspace / "editor/generated", self.workspace / "cmacros/generated"):
             with self.subTest(output=output):
                 with self.assertRaisesRegex(ValueError, "Output must"):
                     with contextlib.redirect_stdout(io.StringIO()):

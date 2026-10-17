@@ -25,6 +25,7 @@ of component documentation here. The generated index has these sections:
 | Language & Compiler | `compiler/doc/**/*.md` | `compiler/` |
 | Editor | `editor/CEDIT.md`, `editor/README.md`, `editor/doc/**/*.md` | `editor/` |
 | Debugger | `debugger/CDBG.md`, `debugger/README.md`, `debugger/doc/**/*.md` | `debugger/` |
+| Macro Processor (cmacros) | `cmacros/README.md`, `cmacros/doc/{BUILD,LANGUAGE,DIAGNOSTICS}.md`, `cmacros/examples/README.md` | `cmacros/` |
 | Contributor Workflow | other workspace `doc/**/*.md` | `workflow/` |
 
 The compiler section keeps the original core-document order, followed by other
@@ -43,6 +44,17 @@ build. Missing required sources or invalid links fail with an explicit error.
 Compatibility redirects retain the old flat compiler-document URLs and their
 fragments, including redirects from `CEDIT.html`/`CDBG.html` to their component
 sections in full workspace builds.
+
+The cmacros checkout is a peer at workspace-root `cmacros/`, mapped to
+[`chucktilbury/cmacros`](https://github.com/chucktilbury/cmacros). All five
+listed guides are required for a full workspace build; a missing checkout or
+guide fails explicitly. Its examples guide gains a generated file listing:
+the runner, upstream license, original `.txt` inputs, and expected `.out`
+files are copied byte-for-byte to `assets/cmacros/examples/`, never parsed as
+Markdown or executed. The runner and license are required inputs. Canonical
+provenance links stay external; directories without a README link to their
+repository tree. Each cmacros guide links back to its canonical GitHub source.
+The CLI is standalone, not integrated into the compiler pipeline.
 
 Generated filenames are recorded in `site/.generated-files.json`; subsequent
 builds remove only previously recorded stale files. Unmanaged files are not
@@ -76,6 +88,11 @@ with its pinned older generator. Updating this checkout does not update a
 workspace submodule pin. A published/versioned website revision and a workspace
 integration update are needed before the pinned normal target uses the new
 sections.
+
+Register and populate the `cmacros/` submodule before updating the workspace's
+website pin to this revision. The compiler-only/legacy staging interface and
+`BUILDER_API = 2` are unchanged; partial builds show the cmacros section as
+unavailable without linking to missing generated pages.
 
 ## Checks and publication
 
