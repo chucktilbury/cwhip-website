@@ -20,6 +20,8 @@ class BuilderTests(unittest.TestCase):
         self.workspace = self.root / "workspace"
         self.output = self.root / "site output"
         self.write("compiler/doc/INSTALLATION.md", "# Installation\n\n## Build\n")
+        self.write("compiler/doc/GETTING_STARTED.md",
+                   "# Getting started\n\n[Installation](INSTALLATION.md#build)\n")
         self.write("compiler/doc/README.md", "# Compiler docs\n")
         self.write("compiler/doc/CEDIT.md", "# OBSOLETE EDITOR\n")
         self.write("compiler/doc/CDBG.md", "# OBSOLETE DEBUGGER\n")
@@ -50,7 +52,15 @@ class BuilderTests(unittest.TestCase):
         self.assertIn("Editor build", (self.output / "editor/doc/BUILD.html").read_text())
         self.assertIn("Debugger build", (self.output / "debugger/doc/BUILD.html").read_text())
         self.assertIn("Workflow build", (self.output / "workflow/BUILD.html").read_text())
+        getting_started = (self.output / "getting-started/index.html").read_text()
+        self.assertIn("<h1 id=\"getting-started\">Getting started</h1>", getting_started)
+        self.assertIn('href="../compiler/INSTALLATION.html#build"', getting_started)
+        self.assertIn('href="docs.html#getting-started"', (self.output / "index.html").read_text())
+        self.assertIn('href="getting-started/index.html"', toc)
+        self.assertIn('href="../docs.html#getting-started"', getting_started)
+        self.assertIn("Getting started", toc)
         self.assertIn('../../styles.css', (self.output / "editor/doc/BUILD.html").read_text())
+        self.assertFalse((self.output / "compiler/GETTING_STARTED.html").exists())
         self.assertFalse((self.output / "compiler/CEDIT.html").exists())
         self.assertNotIn("html/index.html", toc)
         self.assertIn('href="compiler/INSTALLATION.html"',
@@ -81,6 +91,12 @@ class BuilderTests(unittest.TestCase):
     def test_missing_source_fails_before_output(self):
         (self.workspace / "doc/FIRST-PROGRAM.md").unlink()
         with self.assertRaisesRegex(ValueError, "first-program guide"):
+            self.run_build()
+        self.assertFalse(self.output.exists())
+
+    def test_missing_getting_started_fails_before_output(self):
+        (self.workspace / "compiler/doc/GETTING_STARTED.md").unlink()
+        with self.assertRaisesRegex(ValueError, "getting-started guide"):
             self.run_build()
         self.assertFalse(self.output.exists())
 
@@ -123,6 +139,7 @@ class BuilderTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
         check_site(self.output)
+        self.assertTrue((self.output / "compiler/GETTING_STARTED.html").is_file())
         self.assertIn("complete workspace", (self.output / "docs.html").read_text())
 
     def test_legacy_staging_fallback(self):

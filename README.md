@@ -21,7 +21,7 @@ of component documentation here. The generated index has these sections:
 
 | Section | Canonical sources | Output |
 | --- | --- | --- |
-| Getting Started | workspace `doc/FIRST-PROGRAM.md` | `getting-started/` |
+| Getting Started | cwhip `doc/GETTING_STARTED.md` (workspace `compiler/doc/GETTING_STARTED.md`), workspace `doc/FIRST-PROGRAM.md` | `getting-started/` |
 | Language & Compiler | `compiler/doc/**/*.md` | `compiler/` |
 | Editor | `editor/CEDIT.md`, `editor/README.md`, `editor/doc/**/*.md` | `editor/` |
 | Debugger | `debugger/CDBG.md`, `debugger/README.md`, `debugger/doc/**/*.md` | `debugger/` |

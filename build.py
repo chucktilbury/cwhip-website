@@ -160,6 +160,7 @@ TEMPLATE = """<!DOCTYPE html>
   <a class="logo" href="{root}index.html">cwhip</a>
   <nav class="main-nav">
     <a href="{root}index.html">Home</a>
+    <a href="{root}docs.html#getting-started">Getting Started</a>
     <a href="{root}docs.html">Documentation</a>
     <a href="{root}about-site.html">About this site</a>
     <a href="https://github.com/chucktilbury/cwhip-workspace">GitHub</a>
@@ -213,6 +214,9 @@ def build(workspace=None, docs_dir=None, output_dir=None):
     compiler_doc = workspace / "compiler/doc" if workspace else docs_dir
     if not compiler_doc.is_dir() or not list(compiler_doc.glob("*.md")):
         raise ValueError(f"No compiler documentation found in {compiler_doc}")
+    getting_started = compiler_doc / "GETTING_STARTED.md"
+    if workspace and not getting_started.is_file():
+        raise ValueError(f"Required getting-started guide missing: {getting_started}")
     source_roots.append(compiler_doc.parent)
     compiler_order = [
         "INSTALLATION.md", "LANGUAGE-REFERENCE.md", "STDLIB.md", "PACKAGES.md",
@@ -223,7 +227,8 @@ def build(workspace=None, docs_dir=None, output_dir=None):
             p.as_posix())):
         if "website" in page.relative_to(compiler_doc).parts:
             continue
-        if page.name not in ("CEDIT.md", "CDBG.md"):
+        if page.name not in ("CEDIT.md", "CDBG.md") and (
+                not workspace or page != getting_started):
             add(page, Path("compiler") / page.relative_to(compiler_doc).with_suffix(".html"), "compiler")
     if workspace:
         source_roots = [CONTENT, workspace]
@@ -241,9 +246,10 @@ def build(workspace=None, docs_dir=None, output_dir=None):
         first = workspace / "doc/FIRST-PROGRAM.md"
         if not first.is_file():
             raise ValueError(f"Required first-program guide missing: {first}")
+        add(getting_started, "getting-started/index.html", "getting-started")
         add(first, "getting-started/FIRST-PROGRAM.html", "getting-started")
         for page in sorted((workspace / "doc").rglob("*.md")):
-            if page != first:
+            if page not in (first, getting_started):
                 add(page, Path("workflow") / page.relative_to(workspace / "doc").with_suffix(".html"), "workflow")
     else:
         # A compiler-only build must not publish obsolete integrated application guides.
