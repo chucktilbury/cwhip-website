@@ -25,6 +25,8 @@ SECTIONS = (
     ("workflow", "Contributor Workflow"),
 )
 LINK = re.compile(r'(!?)\[([^\]]*)\]\(([^)\n]+)\)')
+INLINE = re.compile(r'(`[^`]+`|!?\[[^\]]*\]\([^)\n]+\))')
+FORMATTED_INLINE = re.compile(INLINE.pattern + r'|\*\*[^*]+\*\*|\*[^*]+\*')
 
 
 def heading_id(text):
@@ -32,18 +34,26 @@ def heading_id(text):
 
 
 def inline(text):
-    # Protect code spans from emphasis/link interpretation.
-    parts = re.split(r"(`[^`]+`)", text)
-    for i, part in enumerate(parts):
+    # Match complete links before code spans inside their labels.
+    parts = []
+    end = 0
+    for token in FORMATTED_INLINE.finditer(text):
+        parts.append(html.escape(text[end:token.start()]))
+        end = token.end()
+        part = token[0]
         if part.startswith("`") and part.endswith("`"):
-            parts[i] = "<code>" + html.escape(part[1:-1]) + "</code>"
+            parts.append("<code>" + html.escape(part[1:-1]) + "</code>")
             continue
-        escaped = html.escape(part)
-        escaped = LINK.sub(
-            lambda m: (f'<img src="{m[3]}" alt="{m[2]}">' if m[1]
-                       else f'<a href="{m[3]}">{m[2]}</a>'), escaped)
-        escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-        parts[i] = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", escaped)
+        match = LINK.fullmatch(part)
+        if match:
+            href = html.escape(match[3], quote=True)
+            parts.append(f'<img src="{href}" alt="{html.escape(match[2], quote=True)}">'
+                         if match[1] else f'<a href="{href}">{inline(match[2])}</a>')
+            continue
+        strong = part.startswith("**")
+        tag, width = ("strong", 2) if strong else ("em", 1)
+        parts.append(f"<{tag}>{inline(part[width:-width])}</{tag}>")
+    parts.append(html.escape(text[end:]))
     return "".join(parts)
 
 
@@ -279,7 +289,8 @@ def build(workspace=None, docs_dir=None, output_dir=None):
         for root, repo in roots:
             if root in source.parents:
                 kind = "tree" if source.is_dir() else "blob"
-                return (f"https://github.com/chucktilbury/{repo}/{kind}/main/"
+                branch = "master" if repo == "cwhip" else "main"
+                return (f"https://github.com/chucktilbury/{repo}/{kind}/{branch}/"
                         + quote(source.relative_to(root).as_posix()))
         raise ValueError(f"No repository mapping for {source}")
 
@@ -330,7 +341,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
                 result.append(line)
             else:
                 # Do not rewrite example Markdown inside inline code.
-                parts = re.split(r"(`[^`]+`)", line)
+                parts = INLINE.split(line)
                 result.append("".join(p if p.startswith("`") else LINK.sub(link, p) for p in parts))
         return "\n".join(result)
 

@@ -159,8 +159,42 @@ class BuilderTests(unittest.TestCase):
         self.run_build()
         page = (self.output / "compiler/README.html").read_text()
         self.assertIn('<img src="../assets/compiler/doc/figure.svg"', page)
-        self.assertIn("https://github.com/chucktilbury/cwhip/blob/main/stdlib/README.md", page)
+        self.assertIn("https://github.com/chucktilbury/cwhip/blob/master/stdlib/README.md", page)
         self.assertTrue((self.output / "assets/compiler/doc/figure.svg").is_file())
+
+    def test_code_formatted_link_labels_are_rewritten_and_rendered(self):
+        self.write("compiler/stdlib/README.md", "# Library\n")
+        self.write("compiler/doc/README.md",
+                   "# Docs\n\n[Install (`cwhip`)](INSTALLATION.md#build)\n\n"
+                   "[`stdlib`](../stdlib/README.md)\n\n"
+                   "`[example](missing.md)`\n\n"
+                   "```\n[`example`](missing.md)\n```\n")
+        self.run_build()
+        page = (self.output / "compiler/README.html").read_text()
+        self.assertIn('<a href="INSTALLATION.html#build">Install (<code>cwhip</code>)</a>', page)
+        self.assertIn('<a href="https://github.com/chucktilbury/cwhip/blob/master/'
+                      'stdlib/README.md"><code>stdlib</code></a>', page)
+        self.assertIn('<code>[example](missing.md)</code>', page)
+        self.assertIn('[`example`](missing.md)', page)
+        check_site(self.output)
+        with contextlib.redirect_stdout(io.StringIO()):
+            build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
+        partial = (self.output / "compiler/README.html").read_text()
+        self.assertIn('<a href="INSTALLATION.html#build">Install (<code>cwhip</code>)</a>', partial)
+        self.assertIn('/cwhip/blob/master/stdlib/README.md', partial)
+        check_site(self.output)
+
+    def test_inline_link_labels_and_targets_are_escaped(self):
+        rendered = build.inline('[`a<b` & **bold**](https://example.test/?a=1&b=2)')
+        self.assertEqual(
+            rendered,
+            '<a href="https://example.test/?a=1&amp;b=2">'
+            '<code>a&lt;b</code> &amp; <strong>bold</strong></a>')
+        self.assertEqual(build.inline('![a"b](image.png?x=1&y=2)'),
+                         '<img src="image.png?x=1&amp;y=2" alt="a&quot;b">')
+        self.assertEqual(build.inline('**[guide](guide.html)** and *`ab`*'),
+                         '<strong><a href="guide.html">guide</a></strong> and '
+                         '<em><code>ab</code></em>')
 
     def test_missing_source_fails_before_output(self):
         (self.workspace / "doc/FIRST-PROGRAM.md").unlink()
