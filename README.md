@@ -33,14 +33,20 @@ documents. Obsolete `compiler/doc/CEDIT.md` and `CDBG.md` are not published;
 links to them resolve to the authoritative component guides. The old embedded
 `compiler/doc/website/` subtree is excluded.
 
-Relative links between imported documents become relative HTML links, including
-fragments. Referenced non-Markdown assets are copied into `assets/`. Links to
-other existing repository Markdown outside these documentation inputs (for
-example `compiler/stdlib/README.md`) go to that repository on GitHub `main`;
+Recognized relative links between imported documents become relative HTML links,
+including fragments. Referenced non-Markdown assets are copied into `assets/`.
+Links to other existing repository Markdown outside these documentation inputs
+(for example `compiler/stdlib/README.md`) are generated as external GitHub links
+using the compiler's `master` branch and the other repositories' `main` branches;
 those external pages are not recursively imported or checked over the network.
-Inline/fenced code examples are not treated as links. Local links, heading
-fragments, navigation, scripts, stylesheets and images are checked during every
-build. Missing required sources or invalid links fail with an explicit error.
+
+Inline/fenced code examples are not treated as links. Link labels may contain
+inline code or emphasis; their destinations are rewritten like plain-text links.
+
+Recognized local links, heading fragments, navigation, scripts, stylesheets and
+images are checked during every build. Missing required sources or invalid
+recognized local links fail with an explicit error. The checker does not verify
+documentation claims, external URLs, or links that failed to render as anchors.
 Compatibility redirects retain the old flat compiler-document URLs and their
 fragments, including redirects from `CEDIT.html`/`CDBG.html` to their component
 sections in full workspace builds.
@@ -83,16 +89,25 @@ no source staging is necessary. If staging the website instead, include
 `build.py`, **`check_site.py`**, and `content/`. The old adapter that copies only
 `build.py` is not sufficient for this revision.
 
-The workspace owns its CMake target and adapter, including backward compatibility
-with its pinned older generator. Updating this checkout does not update a
-workspace submodule pin. A published/versioned website revision and a workspace
-integration update are needed before the pinned normal target uses the new
-sections.
+The workspace owns its CMake target and adapter. Its current adapter invokes
+the pinned builder in full-workspace mode, and its registered `cmacros/`
+submodule and pinned website revision already support the cmacros section.
+Updating this checkout does not update a workspace submodule pin: adopting
+subsequent website fixes still requires a separate workspace pin update.
 
-Register and populate the `cmacros/` submodule before updating the workspace's
-website pin to this revision. The compiler-only/legacy staging interface and
-`BUILDER_API = 2` are unchanged; partial builds show the cmacros section as
-unavailable without linking to missing generated pages.
+Full-workspace builds import the component revisions actually checked out; they
+do not fetch upstream heads or advance submodule pins. The workspace's committed
+component pins may predate the numeric-v2 migration even when upstream component
+repositories contain it. A build using current upstream source archives is
+therefore distinct from an exact-pinned workspace build. Check component
+revisions before assuming imported guides match the current SDK described on
+the home page.
+
+For older workspace revisions, register and populate the `cmacros/` submodule
+and use an adapter supporting full-workspace input before adopting this builder.
+The compiler-only/legacy staging interface and `BUILDER_API = 2` remain
+available; partial builds show the cmacros section as unavailable without linking
+to missing generated pages.
 
 ## Checks and publication
 
@@ -104,6 +119,12 @@ Tests cover complete/partial builds, arbitrary working directories, paths with
 spaces, independent component sections, authoritative guide links, assets,
 missing inputs, fragments, Markdown rendering, and stale-file cleanup.
 
-Publication remains manual. `install.sh` is the pre-existing upload command,
-not a build or validation command; do not run it to preview the site. The
-builder never uploads anything.
+Publication remains manual. This standalone repository does not contain an
+`install.sh` or another upload command. The compiler's legacy
+`doc/website/install.sh` is a separate historical upload script, not a build or
+validation command; do not run it to preview this site. The builder never uploads
+anything.
+
+A local build does not update or verify the public site. Review generated output
+and separately check published pages before treating the live documentation as
+current.

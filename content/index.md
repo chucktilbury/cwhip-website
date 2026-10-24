@@ -17,10 +17,16 @@ Start with the [Getting Started documentation](docs.html#getting-started), or br
 
 ## Language highlights
 
-- Signed 64-bit `int`, `unsigned`, `float`; string type is `strg`.
+- Fixed-width integers `int8`/`uint8` through `int64`/`uint64`, and floating-point types `fp32`/`fp64`; string type is `strg`.
 - Classes with inheritance.
 - Managed strings and collections (`list`, `dict`).
 - Exceptions and native bindings.
+
+The current SDK is **0.0.2**, with ABI **numeric-v2**. The former numeric
+names `int`, `unsigned`, and `float` are reserved and rejected, not aliases.
+FP8, FP16, and BF16 are deferred. See the numeric migration guide in the
+[Language & Compiler documentation](docs.html#compiler) before upgrading
+existing programs or native packages.
 
 ## Applications
 
