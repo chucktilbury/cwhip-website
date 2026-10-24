@@ -95,6 +95,14 @@ submodule and pinned website revision already support the cmacros section.
 Updating this checkout does not update a workspace submodule pin: adopting
 subsequent website fixes still requires a separate workspace pin update.
 
+Full-workspace builds import the component revisions actually checked out; they
+do not fetch upstream heads or advance submodule pins. The workspace's committed
+component pins may predate the numeric-v2 migration even when upstream component
+repositories contain it. A build using current upstream source archives is
+therefore distinct from an exact-pinned workspace build. Check component
+revisions before assuming imported guides match the current SDK described on
+the home page.
+
 For older workspace revisions, register and populate the `cmacros/` submodule
 and use an adapter supporting full-workspace input before adopting this builder.
 The compiler-only/legacy staging interface and `BUILDER_API = 2` remain
