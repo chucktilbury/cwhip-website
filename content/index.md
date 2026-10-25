@@ -23,10 +23,25 @@ Start with the [Getting Started documentation](docs.html#getting-started), or br
 - Exceptions and native bindings.
 
 The current SDK is **0.0.2**, with ABI **numeric-v2**. The former numeric
-names `int`, `unsigned`, and `float` are reserved and rejected, not aliases.
+names `int`, `uint`, and `float` are native aliases for `int32`, `uint32`,
+and `fp32`, respectively. `unsigned` remains reserved and is not a type alias.
 FP8, FP16, and BF16 are deferred. See the numeric migration guide in the
 [Language & Compiler documentation](docs.html#compiler) before upgrading
 existing programs or native packages.
+
+## Syntax at a glance
+
+- Callable types use `R<P1,P2>` or `R<>` for no parameters, for example `int64<int64>`. Postfix signatures can nest: `int64<int64><String>` takes a `String` and returns an `int64<int64>` callable. `callback` is an ordinary identifier, not a type keyword.
+- Comments use `#`, `//`, or non-nesting `/* ... */`. Newlines delimit simple statements; `;` is neither a comment marker nor a statement separator.
+- Dictionary literals use `[key: value]`, with `[:]` for an empty dictionary. Lists use `[value]` or `[]`. Both kinds of literal can span lines and have a trailing comma.
+- Keyword arguments are parenthesized: `if (condition)`, `print(value)`, `return(value)`, and `raise(exception)`. A void return may be `return` or `return()`; `raise` or `raise()` rethrows the active exception inside a handler.
+- Conditional chains use `if (first) { ... } else (second) { ... } else { ... }`, not `else if`. Each `else (condition)` is equivalent to a nested `if` inside an `else` block; a bare `else` must be last.
+- Bitwise `&`, `^`, and `|` bind more tightly than comparisons: `flags & mask == expected` means `(flags & mask) == expected`.
+- Class fields may have compile-time constant initializers, such as `int64 count = 42`. Calls and other runtime expressions are not field initializers.
+- Keywords are case-insensitive. Logical operators retain both spellings: `and`/`&&`, `or`/`||`, and `not`/`!`.
+
+The compiler's grammar and language reference in the
+[Language & Compiler documentation](docs.html#compiler) describe the full syntax.
 
 ## Applications
 

@@ -1,4 +1,5 @@
 import contextlib
+import html
 import io
 import os
 from pathlib import Path
@@ -150,6 +151,86 @@ class BuilderTests(unittest.TestCase):
         self.assertIn('../editor/CEDIT.html', page)
         self.assertIn('../debugger/CDBG.html', page)
         self.assertNotIn("OBSOLETE", page)
+
+    def test_homepage_current_syntax(self):
+        self.run_build()
+        page = (self.output / "index.html").read_text()
+        text = " ".join(page.split())
+        self.assertIn(
+            "<code>int</code>, <code>uint</code>, and <code>float</code> are native aliases "
+            "for <code>int32</code>, <code>uint32</code>, and <code>fp32</code>, respectively.",
+            text)
+        self.assertIn("<code>unsigned</code> remains reserved and is not a type alias.", text)
+        for sample in ("R<P1,P2>", "R<>", "int64<int64>", "int64<int64><String>",
+                       "#", "//", "/* ... */", "[key: value]", "[:]", "[]",
+                       "return(value)", "return()", "raise(exception)", "raise()",
+                       "if (first) { ... } else (second) { ... } else { ... }",
+                       "flags & mask == expected", "(flags & mask) == expected",
+                       "int64 count = 42", "and", "&&", "or", "||", "not", "!"):
+            with self.subTest(sample=sample):
+                self.assertIn("<code>" + html.escape(sample) + "</code>", page)
+        for guidance in ("<code>callback</code> is an ordinary identifier",
+                         "Newlines delimit simple statements",
+                         "neither a comment marker nor a statement separator",
+                         "Both kinds of literal can span lines and have a trailing comma",
+                         "a bare <code>else</code> must be last",
+                         "bind more tightly than comparisons",
+                         "Class fields may have compile-time constant initializers",
+                         "Keywords are case-insensitive"):
+            with self.subTest(guidance=guidance):
+                self.assertIn(guidance, text)
+        self.assertNotIn("reserved and rejected, not aliases", page)
+        check_site(self.output)
+
+    def test_current_cwhip_samples_preserved_on_import(self):
+        sample = '''class Example {
+    int64 count = 42
+    int64<int64> callback
+    int64<int64><String> factory
+    int64 value() { return(count) }
+}
+start {
+    # Dictionary and list literals can span lines.
+    dict values = [
+        "answer": 42,
+    ]
+    dict empty = [:]
+    list items = [
+        1,
+        2,
+    ]
+    int flags = 3
+    uint mask = 1u
+    float fraction = .5
+    IF (flags & 1 == 1 and not false) {
+        print(values["answer"])
+    } else (flags == 0 || false) {
+        print(empty)
+    } else {
+        /* This is a block comment. */
+        // A second line-comment spelling.
+        print(items)
+    }
+    try {
+        raise(Exception("example"))
+    } except (Exception) {
+        raise()
+    }
+}
+'''
+        source = self.write("compiler/doc/SYNTAX.md", "# Syntax\n\n```cwhip\n" + sample + "```\n")
+        original = source.read_bytes()
+        for partial in (False, True):
+            with self.subTest(partial=partial):
+                with contextlib.redirect_stdout(io.StringIO()):
+                    if partial:
+                        build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
+                    else:
+                        self.run_build()
+                page = (self.output / "compiler/SYNTAX.html").read_text()
+                self.assertIn("<pre><code>\n" + html.escape(sample) + "</code></pre>", page)
+                self.assertEqual(source.read_bytes(), original)
+                check_site(self.output)
 
     def test_linked_asset_and_repository_reference(self):
         self.write("compiler/doc/figure.svg", "<svg></svg>")
