@@ -47,8 +47,11 @@ python3 build.py \
 
 `--output-dir` defaults to `site/` beside `build.py`. The builder reads sources
 without changing them and never clones, fetches, installs, or uploads anything.
-Use current component checkouts, including the compiler's `doc/FIRST-PROGRAM.md`;
-a missing required checkout or guide fails with its path before output is written.
+Use current component checkouts. A missing required checkout or guide fails with
+its path before output is written. During the upstream first-program guide
+migration, missing cwhip `doc/FIRST-PROGRAM.md` emits an explicit warning and
+omits only that page; update the compiler checkout to publish it automatically.
+`doc/GETTING_STARTED.md` remains required for full builds.
 No combined repository or submodule layout is needed.
 
 | Section | Canonical sources | Output |

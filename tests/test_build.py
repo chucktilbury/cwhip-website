@@ -285,11 +285,18 @@ start {
                          '<strong><a href="guide.html">guide</a></strong> and '
                          '<em><code>ab</code></em>')
 
-    def test_missing_source_fails_before_output(self):
+    def test_first_program_pending_upstream_is_explicitly_optional(self):
         self.source("cwhip/doc/FIRST-PROGRAM.md").unlink()
-        with self.assertRaisesRegex(ValueError, "first-program guide"):
+        warning = io.StringIO()
+        with contextlib.redirect_stderr(warning):
             self.run_build()
-        self.assertFalse(self.output.exists())
+        self.assertIn("warning: First-program guide not yet available:", warning.getvalue())
+        self.assertIn(str(self.source("cwhip/doc/FIRST-PROGRAM.md")), warning.getvalue())
+        self.assertTrue((self.output / "getting-started/index.html").is_file())
+        self.assertFalse((self.output / "getting-started/FIRST-PROGRAM.html").exists())
+        self.assertNotIn('href="getting-started/FIRST-PROGRAM.html"',
+                         (self.output / "docs.html").read_text())
+        check_site(self.output)
 
     def test_missing_getting_started_fails_before_output(self):
         self.source("cwhip/doc/GETTING_STARTED.md").unlink()

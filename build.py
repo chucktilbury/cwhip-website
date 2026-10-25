@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import sys
 from urllib.parse import quote, unquote, urlsplit
 
 from check_site import check_site
@@ -228,8 +229,6 @@ def build(docs_dir=None, output_dir=None, *, repos_root=None, cwhip_root=None,
     if not docs_dir and not getting_started.is_file():
         raise ValueError(f"Required getting-started guide missing: {getting_started}")
     first = compiler_doc / "FIRST-PROGRAM.md"
-    if not docs_dir and not first.is_file():
-        raise ValueError(f"Required first-program guide missing: {first}")
     compiler_order = [
         "INSTALLATION.md", "LANGUAGE-REFERENCE.md", "STDLIB.md", "PACKAGES.md",
         "EXAMPLES.md", "GTK.md", "DEBUGGING.md", "GRAMMAR.md",
@@ -264,7 +263,12 @@ def build(docs_dir=None, output_dir=None, *, repos_root=None, cwhip_root=None,
                 raise ValueError(f"Required cmacros documentation missing: {source}")
             add(source, Path("cmacros") / Path(name).with_suffix(".html"), "cmacros")
         add(getting_started, "getting-started/index.html", "getting-started")
-        add(first, "getting-started/FIRST-PROGRAM.html", "getting-started")
+        if first.is_file():
+            add(first, "getting-started/FIRST-PROGRAM.html", "getting-started")
+        else:
+            print(f"website: warning: First-program guide not yet available: {first}; "
+                  "publishing Getting Started without it. Update the cwhip checkout "
+                  "to include doc/FIRST-PROGRAM.md.", file=sys.stderr)
     else:
         # A compiler-only build must not publish obsolete integrated application guides.
         for guide, component in (("CEDIT.md", "editor"), ("CDBG.md", "debugger")):
