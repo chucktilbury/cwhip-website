@@ -1,6 +1,7 @@
 import contextlib
 import html
 import io
+import json
 import os
 from pathlib import Path
 import shutil
@@ -8,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import build
 from check_site import check_site
@@ -18,18 +20,18 @@ class BuilderTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="cwhip site ")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.workspace = self.root / "workspace"
+        self.repos = self.root / "independent repos"
         self.output = self.root / "site output"
-        self.write("compiler/doc/INSTALLATION.md", "# Installation\n\n## Build\n")
-        self.write("compiler/doc/GETTING_STARTED.md",
+        self.write("cwhip/doc/INSTALLATION.md", "# Installation\n\n## Build\n")
+        self.write("cwhip/doc/GETTING_STARTED.md",
                    "# Getting started\n\n[Installation](INSTALLATION.md#build)\n")
-        self.write("compiler/doc/README.md", "# Compiler docs\n")
-        self.write("compiler/doc/CEDIT.md", "# OBSOLETE EDITOR\n")
-        self.write("compiler/doc/CDBG.md", "# OBSOLETE DEBUGGER\n")
-        self.write("editor/CEDIT.md", "# Editor guide\n\n[Build](doc/BUILD.md)\n")
-        self.write("editor/doc/BUILD.md", "# Editor build\n\n[Guide](../CEDIT.md)\n")
-        self.write("debugger/CDBG.md", "# Debugger guide\n")
-        self.write("debugger/doc/BUILD.md", "# Debugger build\n")
+        self.write("cwhip/doc/README.md", "# Compiler docs\n")
+        self.write("cwhip/doc/CEDIT.md", "# OBSOLETE EDITOR\n")
+        self.write("cwhip/doc/CDBG.md", "# OBSOLETE DEBUGGER\n")
+        self.write("cedit/CEDIT.md", "# Editor guide\n\n[Build](doc/BUILD.md)\n")
+        self.write("cedit/doc/BUILD.md", "# Editor build\n\n[Guide](../CEDIT.md)\n")
+        self.write("cdbg/CDBG.md", "# Debugger guide\n")
+        self.write("cdbg/doc/BUILD.md", "# Debugger build\n")
         self.write("cmacros/README.md",
                    "# cmacros\n\n[Language](doc/LANGUAGE.md#names)\n\n"
                    "[Original inputs](examples/original-passing)\n\n"
@@ -45,18 +47,21 @@ class BuilderTests(unittest.TestCase):
         self.write("cmacros/examples/original-passing/define.txt",
                    "# Not Markdown\n[x](missing.md)\n.define X {<tag>}\n@X\n")
         self.write("cmacros/examples/expected/define.out", "<tag>\n")
-        self.write("doc/FIRST-PROGRAM.md", "# First program\n\n[Build](BUILD.md)\n")
-        self.write("doc/BUILD.md", "# Workflow build\n\n[Compiler](../compiler/doc/INSTALLATION.md#build)\n")
+        self.write("cwhip/doc/FIRST-PROGRAM.md",
+                   "# First program\n\n[Build](INSTALLATION.md#build)\n")
 
     def write(self, name, text):
-        target = self.workspace / name
+        target = self.source(name)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")
         return target
 
+    def source(self, name):
+        return self.repos / name
+
     def run_build(self, **kwargs):
         with contextlib.redirect_stdout(io.StringIO()):
-            return build.build(workspace=self.workspace, output_dir=self.output, **kwargs)
+            return build.build(repos_root=self.repos, output_dir=self.output, **kwargs)
 
     def test_complete_site_and_section_collisions(self):
         self.run_build()
@@ -68,7 +73,10 @@ class BuilderTests(unittest.TestCase):
         self.assertIn("Editor build", (self.output / "editor/doc/BUILD.html").read_text())
         self.assertIn("Debugger build", (self.output / "debugger/doc/BUILD.html").read_text())
         self.assertIn("Macro build", (self.output / "cmacros/doc/BUILD.html").read_text())
-        self.assertIn("Workflow build", (self.output / "workflow/BUILD.html").read_text())
+        self.assertFalse((self.output / "workflow").exists())
+        self.assertNotIn('id="workflow"', toc)
+        self.assertIn('href="getting-started/FIRST-PROGRAM.html"', toc)
+        self.assertFalse((self.output / "compiler/FIRST-PROGRAM.html").exists())
         getting_started = (self.output / "getting-started/index.html").read_text()
         self.assertIn("<h1 id=\"getting-started\">Getting started</h1>", getting_started)
         self.assertIn('href="../compiler/INSTALLATION.html#build"', getting_started)
@@ -104,7 +112,7 @@ class BuilderTests(unittest.TestCase):
                      "original-passing/define.txt", "expected/define.out"):
             self.assertIn(f'href="../../assets/cmacros/examples/{name}"', guide)
             self.assertEqual((self.output / "assets/cmacros/examples" / name).read_bytes(),
-                             (self.workspace / "cmacros/examples" / name).read_bytes())
+                             (self.repos / "cmacros/examples" / name).read_bytes())
         self.assertFalse((self.output / "cmacros/examples/original-passing/define.html").exists())
         check_site(self.output)
 
@@ -113,7 +121,7 @@ class BuilderTests(unittest.TestCase):
                      "doc/DIAGNOSTICS.md", "examples/README.md",
                      "examples/run_examples.py", "examples/original-passing/LICENSE"):
             with self.subTest(name=name):
-                source = self.workspace / "cmacros" / name
+                source = self.repos / "cmacros" / name
                 text = source.read_text()
                 source.unlink()
                 with self.assertRaisesRegex(ValueError, "Required cmacros"):
@@ -138,13 +146,13 @@ class BuilderTests(unittest.TestCase):
     def test_cmacros_stale_assets_removed_in_partial_build(self):
         self.run_build()
         with contextlib.redirect_stdout(io.StringIO()):
-            build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
+            build.build(docs_dir=self.source("cwhip/doc"), output_dir=self.output)
         self.assertFalse((self.output / "cmacros/README.html").exists())
         self.assertFalse((self.output / "assets/cmacros/examples/run_examples.py").exists())
         check_site(self.output)
 
     def test_authoritative_aliases(self):
-        self.write("compiler/doc/INSTALLATION.md",
+        self.write("cwhip/doc/INSTALLATION.md",
                    "# Install\n\n## Build\n\n[Editor](CEDIT.md) and [Debugger](CDBG.md)\n")
         self.run_build()
         page = (self.output / "compiler/INSTALLATION.html").read_text()
@@ -218,13 +226,13 @@ start {
     }
 }
 '''
-        source = self.write("compiler/doc/SYNTAX.md", "# Syntax\n\n```cwhip\n" + sample + "```\n")
+        source = self.write("cwhip/doc/SYNTAX.md", "# Syntax\n\n```cwhip\n" + sample + "```\n")
         original = source.read_bytes()
         for partial in (False, True):
             with self.subTest(partial=partial):
                 with contextlib.redirect_stdout(io.StringIO()):
                     if partial:
-                        build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
+                        build.build(docs_dir=self.source("cwhip/doc"), output_dir=self.output)
                     else:
                         self.run_build()
                 page = (self.output / "compiler/SYNTAX.html").read_text()
@@ -233,9 +241,9 @@ start {
                 check_site(self.output)
 
     def test_linked_asset_and_repository_reference(self):
-        self.write("compiler/doc/figure.svg", "<svg></svg>")
-        self.write("compiler/stdlib/README.md", "# External source README\n")
-        self.write("compiler/doc/README.md",
+        self.write("cwhip/doc/figure.svg", "<svg></svg>")
+        self.write("cwhip/stdlib/README.md", "# External source README\n")
+        self.write("cwhip/doc/README.md",
                    "# Docs\n\n![Figure](figure.svg)\n\n[Library](../stdlib/README.md)\n")
         self.run_build()
         page = (self.output / "compiler/README.html").read_text()
@@ -244,8 +252,8 @@ start {
         self.assertTrue((self.output / "assets/compiler/doc/figure.svg").is_file())
 
     def test_code_formatted_link_labels_are_rewritten_and_rendered(self):
-        self.write("compiler/stdlib/README.md", "# Library\n")
-        self.write("compiler/doc/README.md",
+        self.write("cwhip/stdlib/README.md", "# Library\n")
+        self.write("cwhip/doc/README.md",
                    "# Docs\n\n[Install (`cwhip`)](INSTALLATION.md#build)\n\n"
                    "[`stdlib`](../stdlib/README.md)\n\n"
                    "`[example](missing.md)`\n\n"
@@ -259,7 +267,7 @@ start {
         self.assertIn('[`example`](missing.md)', page)
         check_site(self.output)
         with contextlib.redirect_stdout(io.StringIO()):
-            build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
+            build.build(docs_dir=self.source("cwhip/doc"), output_dir=self.output)
         partial = (self.output / "compiler/README.html").read_text()
         self.assertIn('<a href="INSTALLATION.html#build">Install (<code>cwhip</code>)</a>', partial)
         self.assertIn('/cwhip/blob/master/stdlib/README.md', partial)
@@ -277,20 +285,27 @@ start {
                          '<strong><a href="guide.html">guide</a></strong> and '
                          '<em><code>ab</code></em>')
 
-    def test_missing_source_fails_before_output(self):
-        (self.workspace / "doc/FIRST-PROGRAM.md").unlink()
-        with self.assertRaisesRegex(ValueError, "first-program guide"):
+    def test_first_program_pending_upstream_is_explicitly_optional(self):
+        self.source("cwhip/doc/FIRST-PROGRAM.md").unlink()
+        warning = io.StringIO()
+        with contextlib.redirect_stderr(warning):
             self.run_build()
-        self.assertFalse(self.output.exists())
+        self.assertIn("warning: First-program guide not yet available:", warning.getvalue())
+        self.assertIn(str(self.source("cwhip/doc/FIRST-PROGRAM.md")), warning.getvalue())
+        self.assertTrue((self.output / "getting-started/index.html").is_file())
+        self.assertFalse((self.output / "getting-started/FIRST-PROGRAM.html").exists())
+        self.assertNotIn('href="getting-started/FIRST-PROGRAM.html"',
+                         (self.output / "docs.html").read_text())
+        check_site(self.output)
 
     def test_missing_getting_started_fails_before_output(self):
-        (self.workspace / "compiler/doc/GETTING_STARTED.md").unlink()
+        self.source("cwhip/doc/GETTING_STARTED.md").unlink()
         with self.assertRaisesRegex(ValueError, "getting-started guide"):
             self.run_build()
         self.assertFalse(self.output.exists())
 
     def test_broken_links_and_fragments_fail(self):
-        source = self.write("editor/CEDIT.md", "# Editor\n\n[Missing](missing.md)\n")
+        source = self.write("cedit/CEDIT.md", "# Editor\n\n[Missing](missing.md)\n")
         with self.assertRaisesRegex(ValueError, "missing or out-of-scope"):
             self.run_build()
         source.write_text("# Editor\n\n[Missing](#missing)\n")
@@ -298,7 +313,7 @@ start {
             self.run_build()
 
     def test_stale_generated_files_removed_manual_api_preserved(self):
-        extra = self.write("compiler/doc/OLD.md", "# Old\n")
+        extra = self.write("cwhip/doc/OLD.md", "# Old\n")
         self.run_build()
         manual = self.output / "html/index.html"
         manual.parent.mkdir()
@@ -312,49 +327,123 @@ start {
     def test_arbitrary_cwd_cli_and_paths_with_spaces(self):
         result = subprocess.run(
             [sys.executable, str(build.ROOT / "build.py"),
-             "--workspace", str(self.workspace), "--output-dir", str(self.output)],
+             "--repos-root", str(self.repos), "--output-dir", str(self.output)],
             cwd=self.root, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         check_site(self.output)
 
-    def test_no_input_is_explicit_error(self):
-        # This standalone checkout is not the old doc/website staging layout.
-        if (build.ROOT.parent / "INSTALLATION.md").is_file():
-            self.skipTest("legacy adapter staging")
-        with self.assertRaisesRegex(ValueError, "Documentation input required"):
+    def test_default_sibling_discovery_without_workspace(self):
+        website = self.repos / "cwhip-website"
+        website.mkdir()
+        with patch.object(build, "ROOT", website), contextlib.redirect_stdout(io.StringIO()):
             build.build(output_dir=self.output)
+        check_site(self.output)
+        self.assertEqual({p.name for p in self.repos.iterdir()},
+                         {"cwhip", "cedit", "cdbg", "cmacros", "cwhip-website"})
+        for page in self.output.rglob("*.html"):
+            self.assertNotIn("cwhip-workspace", page.read_text())
+
+    def test_missing_sibling_is_explicit_error(self):
+        with self.assertRaisesRegex(ValueError, "No compiler documentation found"):
+            build.build(repos_root=self.root / "absent", output_dir=self.output)
+        self.assertFalse(self.output.exists())
+
+    def test_explicit_repository_roots(self):
+        self.write("cedit/doc/icon.svg", "<svg>editor</svg>")
+        self.write("cdbg/doc/icon.svg", "<svg>debugger</svg>")
+        for repo in ("cedit", "cdbg"):
+            self.write(f"{repo}/doc/BUILD.md", "# Build\n\n![Icon](icon.svg)\n")
+        roots = {}
+        for repo in ("cwhip", "cedit", "cdbg", "cmacros"):
+            target = self.root / f"separate {repo}" / "checkout"
+            target.parent.mkdir()
+            shutil.move(self.repos / repo, target)
+            roots[f"{repo}_root"] = target
+        with contextlib.redirect_stdout(io.StringIO()):
+            build.build(output_dir=self.output, **roots)
+        check_site(self.output)
+        self.assertTrue((self.output / "editor/CEDIT.html").is_file())
+        for component in ("editor", "debugger"):
+            asset = f"assets/{component}/doc/icon.svg"
+            self.assertEqual((self.output / asset).read_text(), f"<svg>{component}</svg>")
+            self.assertIn(f'../../{asset}',
+                          (self.output / component / "doc/BUILD.html").read_text())
+
+    def test_single_root_override_and_cross_repository_links(self):
+        self.write("cwhip/doc/README.md",
+                   "# Docs\n\n[Editor](../../cedit/CEDIT.md)\n")
+        target = self.root / "separate macros"
+        shutil.move(self.repos / "cmacros", target)
+        self.run_build(cmacros_root=target)
+        self.assertIn('href="../editor/CEDIT.html"',
+                      (self.output / "compiler/README.html").read_text())
+        check_site(self.output)
+
+    def test_old_workflow_generated_pages_are_removed(self):
+        self.run_build()
+        stale = self.output / "workflow/BUILD.html"
+        stale.parent.mkdir()
+        stale.write_text("<h1>Old workflow</h1>")
+        inventory = self.output / ".generated-files.json"
+        inventory.write_text(json.dumps(json.loads(inventory.read_text()) + ["workflow/BUILD.html"]))
+        self.run_build()
+        self.assertFalse(stale.exists())
+
+    def test_missing_component_guide_fails_before_output(self):
+        for name in ("cedit/CEDIT.md", "cdbg/CDBG.md"):
+            with self.subTest(name=name):
+                source = self.source(name)
+                text = source.read_text()
+                source.unlink()
+                with self.assertRaisesRegex(ValueError, "Required component guide missing"):
+                    self.run_build()
+                self.assertFalse(self.output.exists())
+                source.write_text(text)
+
+    def test_legacy_combined_layout_option_is_rejected(self):
+        result = subprocess.run(
+            [sys.executable, str(build.ROOT / "build.py"),
+             "--workspace", str(self.repos), "--output-dir", str(self.output)],
+            cwd=self.root, text=True, capture_output=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unrecognized arguments: --workspace", result.stderr)
+        self.assertFalse(self.output.exists())
+
+    def test_partial_and_repository_inputs_are_mutually_exclusive(self):
+        for roots in ({"repos_root": self.repos}, {"cedit_root": self.source("cedit")}):
+            with self.subTest(roots=roots):
+                with self.assertRaisesRegex(ValueError, "Use --docs-dir alone"):
+                    build.build(docs_dir=self.source("cwhip/doc"),
+                                output_dir=self.output, **roots)
 
     def test_compiler_only_partial_build(self):
         with contextlib.redirect_stdout(io.StringIO()):
-            build.build(docs_dir=self.workspace / "compiler/doc", output_dir=self.output)
+            build.build(docs_dir=self.source("cwhip/doc"), output_dir=self.output)
         check_site(self.output)
         self.assertTrue((self.output / "compiler/GETTING_STARTED.html").is_file())
-        self.assertIn("complete workspace", (self.output / "docs.html").read_text())
+        self.assertIn("standalone repositories", (self.output / "docs.html").read_text())
         toc = (self.output / "docs.html").read_text()
         self.assertIn('id="cmacros"', toc)
         self.assertNotIn('href="cmacros/', toc)
         self.assertIn('href="docs.html#cmacros"', (self.output / "index.html").read_text())
 
-    def test_legacy_staging_fallback(self):
-        stage = self.root / "legacy/doc"
-        shutil.copytree(self.workspace / "compiler/doc", stage)
-        website = stage / "website"
-        shutil.copytree(build.CONTENT, website / "content")
-        for name in ("build.py", "check_site.py"):
-            shutil.copy2(build.ROOT / name, website / name)
+    def test_explicit_roots_cli(self):
+        command = [sys.executable, str(build.ROOT / "build.py")]
+        for repo in ("cwhip", "cedit", "cdbg", "cmacros"):
+            command += [f"--{repo}-root", str(self.repos / repo)]
         result = subprocess.run(
-            [sys.executable, str(website / "build.py")],
+            command + ["--output-dir", str(self.output)],
             cwd=self.root, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
-        check_site(website / "site")
+        check_site(self.output)
 
     def test_output_cannot_overwrite_source(self):
-        for output in (self.workspace, self.workspace / "compiler/doc",
-                       self.workspace / "editor/generated", self.workspace / "cmacros/generated"):
+        for output in (self.repos, self.source("cwhip/doc"),
+                       self.source("cedit/generated"), self.repos / "cmacros/generated"):
             with self.subTest(output=output):
                 with self.assertRaisesRegex(ValueError, "Output must"):
                     with contextlib.redirect_stdout(io.StringIO()):
-                        build.build(workspace=self.workspace, output_dir=output)
+                        build.build(repos_root=self.repos, output_dir=output)
 
     def test_markdown_lists_fences_headings_and_escaping(self):
         rendered = build.md_to_html(

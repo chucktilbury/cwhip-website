@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import sys
 from urllib.parse import quote, unquote, urlsplit
 
 from check_site import check_site
@@ -15,14 +16,13 @@ from check_site import check_site
 
 ROOT = Path(__file__).resolve().parent
 CONTENT = ROOT / "content"
-BUILDER_API = 2
+BUILDER_API = 3
 SECTIONS = (
     ("getting-started", "Getting Started"),
     ("compiler", "Language & Compiler"),
     ("editor", "Editor"),
     ("debugger", "Debugger"),
     ("cmacros", "Macro Processor (cmacros)"),
-    ("workflow", "Contributor Workflow"),
 )
 LINK = re.compile(r'(!?)\[([^\]]*)\]\(([^)\n]+)\)')
 INLINE = re.compile(r'(`[^`]+`|!?\[[^\]]*\]\([^)\n]+\))')
@@ -174,7 +174,7 @@ TEMPLATE = """<!DOCTYPE html>
     <a href="{root}docs.html#getting-started">Getting Started</a>
     <a href="{root}docs.html">Documentation</a>
     <a href="{root}about-site.html">About this site</a>
-    <a href="https://github.com/chucktilbury/cwhip-workspace">GitHub</a>
+    <a href="https://github.com/chucktilbury/cwhip">GitHub</a>
   </nav>
 </header>
 <main>
@@ -193,23 +193,23 @@ def relative(target, page):
     return Path(os.path.relpath(target, page.parent)).as_posix()
 
 
-def build(workspace=None, docs_dir=None, output_dir=None):
-    workspace = Path(workspace).resolve() if workspace else None
+def build(docs_dir=None, output_dir=None, *, repos_root=None, cwhip_root=None,
+          cedit_root=None, cdbg_root=None, cmacros_root=None):
     docs_dir = Path(docs_dir).resolve() if docs_dir else None
     output = Path(output_dir).resolve() if output_dir else ROOT / "site"
-    if workspace and docs_dir:
-        raise ValueError("Use --workspace or --docs-dir, not both")
-    if not workspace and not docs_dir:
-        # Compatibility with the pinned workspace adapter's doc/website staging.
-        if (ROOT.parent / "INSTALLATION.md").is_file():
-            docs_dir = ROOT.parent
-        else:
-            raise ValueError("Documentation input required: use --workspace ROOT or --docs-dir DIR")
+    overrides = (cwhip_root, cedit_root, cdbg_root, cmacros_root)
+    if docs_dir and (repos_root or any(overrides)):
+        raise ValueError("Use --docs-dir alone for a partial site, not with repository roots")
+    parent = Path(repos_root).resolve() if repos_root else ROOT.parent
+    repositories = {
+        repo: (Path(root) if root else parent / repo).resolve()
+        for repo, root in zip(("cwhip", "cedit", "cdbg", "cmacros"), overrides)
+    } if not docs_dir else {"cwhip": docs_dir.parent}
     sources = {}
     sections = {key: [] for key, _ in SECTIONS}
     aliases = {}
     assets = {}
-    source_roots = [CONTENT]
+    source_roots = [CONTENT, *repositories.values()]
 
     def add(source, destination, section=None):
         source = source.resolve()
@@ -222,13 +222,13 @@ def build(workspace=None, docs_dir=None, output_dir=None):
         if page.name != "docs.md":
             add(page, page.with_suffix(".html").name)
 
-    compiler_doc = workspace / "compiler/doc" if workspace else docs_dir
+    compiler_doc = docs_dir or repositories["cwhip"] / "doc"
     if not compiler_doc.is_dir() or not list(compiler_doc.glob("*.md")):
         raise ValueError(f"No compiler documentation found in {compiler_doc}")
     getting_started = compiler_doc / "GETTING_STARTED.md"
-    if workspace and not getting_started.is_file():
+    if not docs_dir and not getting_started.is_file():
         raise ValueError(f"Required getting-started guide missing: {getting_started}")
-    source_roots.append(compiler_doc.parent)
+    first = compiler_doc / "FIRST-PROGRAM.md"
     compiler_order = [
         "INSTALLATION.md", "LANGUAGE-REFERENCE.md", "STDLIB.md", "PACKAGES.md",
         "EXAMPLES.md", "GTK.md", "DEBUGGING.md", "GRAMMAR.md",
@@ -239,12 +239,12 @@ def build(workspace=None, docs_dir=None, output_dir=None):
         if "website" in page.relative_to(compiler_doc).parts:
             continue
         if page.name not in ("CEDIT.md", "CDBG.md") and (
-                not workspace or page != getting_started):
+                docs_dir or page not in (getting_started, first)):
             add(page, Path("compiler") / page.relative_to(compiler_doc).with_suffix(".html"), "compiler")
-    if workspace:
-        source_roots = [CONTENT, workspace]
-        for component, guide in (("editor", "CEDIT.md"), ("debugger", "CDBG.md")):
-            root = workspace / component
+    if not docs_dir:
+        for component, repo, guide in (("editor", "cedit", "CEDIT.md"),
+                                       ("debugger", "cdbg", "CDBG.md")):
+            root = repositories[repo]
             if not (root / guide).is_file():
                 raise ValueError(f"Required component guide missing: {root / guide}")
             pages = [root / guide]
@@ -254,7 +254,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
             for page in pages:
                 add(page, Path(component) / page.relative_to(root).with_suffix(".html"), component)
             aliases[(compiler_doc / guide).resolve()] = (root / guide).resolve()
-        macro_root = workspace / "cmacros"
+        macro_root = repositories["cmacros"]
         macro_pages = ["README.md", "doc/BUILD.md", "doc/LANGUAGE.md",
                        "doc/DIAGNOSTICS.md", "examples/README.md"]
         for name in macro_pages:
@@ -262,14 +262,13 @@ def build(workspace=None, docs_dir=None, output_dir=None):
             if not source.is_file():
                 raise ValueError(f"Required cmacros documentation missing: {source}")
             add(source, Path("cmacros") / Path(name).with_suffix(".html"), "cmacros")
-        first = workspace / "doc/FIRST-PROGRAM.md"
-        if not first.is_file():
-            raise ValueError(f"Required first-program guide missing: {first}")
         add(getting_started, "getting-started/index.html", "getting-started")
-        add(first, "getting-started/FIRST-PROGRAM.html", "getting-started")
-        for page in sorted((workspace / "doc").rglob("*.md")):
-            if page not in (first, getting_started):
-                add(page, Path("workflow") / page.relative_to(workspace / "doc").with_suffix(".html"), "workflow")
+        if first.is_file():
+            add(first, "getting-started/FIRST-PROGRAM.html", "getting-started")
+        else:
+            print(f"website: warning: First-program guide not yet available: {first}; "
+                  "publishing Getting Started without it. Update the cwhip checkout "
+                  "to include doc/FIRST-PROGRAM.md.", file=sys.stderr)
     else:
         # A compiler-only build must not publish obsolete integrated application guides.
         for guide, component in (("CEDIT.md", "editor"), ("CDBG.md", "debugger")):
@@ -279,15 +278,8 @@ def build(workspace=None, docs_dir=None, output_dir=None):
         return any(path == root or root in path.parents for root in source_roots)
 
     def repository_link(source):
-        roots = (
-            [(workspace / component, repo) for component, repo in
-             (("compiler", "cwhip"), ("editor", "cedit"), ("debugger", "cdbg"),
-              ("cmacros", "cmacros"))]
-            + [(workspace, "cwhip-workspace")] if workspace else
-            [(compiler_doc.parent, "cwhip")]
-        )
-        for root, repo in roots:
-            if root in source.parents:
+        for repo, root in repositories.items():
+            if source == root or root in source.parents:
                 kind = "tree" if source.is_dir() else "blob"
                 branch = "master" if repo == "cwhip" else "main"
                 return (f"https://github.com/chucktilbury/{repo}/{kind}/{branch}/"
@@ -327,7 +319,14 @@ def build(workspace=None, docs_dir=None, output_dir=None):
                     return f"{image}[{label}]({href}{suffix})"
                 dest = sources[local]
             else:
-                asset_path = local.relative_to(workspace if workspace else compiler_doc.parent)
+                if CONTENT in local.parents:
+                    asset_path = Path("content") / local.relative_to(CONTENT)
+                else:
+                    repo = next(name for name, root in repositories.items()
+                                if root in local.parents)
+                    prefix = {"cwhip": "compiler", "cedit": "editor",
+                              "cdbg": "debugger"}.get(repo, repo)
+                    asset_path = Path(prefix) / local.relative_to(repositories[repo])
                 dest = Path("assets") / asset_path
                 assets[local] = dest
             href = quote(relative(dest, page), safe="/.-")
@@ -348,7 +347,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
     rendered = {}
     for source, page in sources.items():
         raw = source.read_text(encoding="utf-8")
-        if workspace and source == (workspace / "cmacros/examples/README.md").resolve():
+        if not docs_dir and source == (repositories["cmacros"] / "examples/README.md").resolve():
             examples = source.parent
             runner = examples / "run_examples.py"
             license_file = examples / "original-passing/LICENSE"
@@ -363,7 +362,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
                 f"- [{p.relative_to(examples).as_posix()}]({quote(p.relative_to(examples).as_posix())})"
                 for p in files)
         body = md_to_html(rewrite(raw, source, page))
-        if workspace and source in sections["cmacros"]:
+        if not docs_dir and source in sections["cmacros"]:
             body += f'\n<p><a href="{repository_link(source)}">Canonical source on GitHub</a></p>'
         rendered[source] = (raw, body)
     reserved = set(sources) | set(assets)
@@ -371,10 +370,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
         raise ValueError("Output must not replace a documentation source directory")
     if any(output == path or output in path.parents for path in reserved):
         raise ValueError("Output must not contain documentation inputs")
-    protected = [CONTENT, compiler_doc]
-    if workspace:
-        protected += [workspace / name for name in ("editor", "debugger", "cmacros", "doc")]
-    if output != ROOT / "site" and any(root in output.parents for root in protected):
+    if output != ROOT / "site" and any(root in output.parents for root in source_roots):
         raise ValueError("Output must be outside documentation source trees")
 
     pages = {}
@@ -386,7 +382,7 @@ def build(workspace=None, docs_dir=None, output_dir=None):
     for key, title in SECTIONS:
         lines.append(f'<h2 id="{key}">{title}</h2>')
         if not sections[key]:
-            lines.append("<p>This section requires a complete workspace documentation input.</p>")
+            lines.append("<p>This section requires a full build from the standalone repositories.</p>")
             continue
         lines.append('<ol class="toc">')
         for source in sections[key]:
@@ -457,12 +453,15 @@ def build(workspace=None, docs_dir=None, output_dir=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workspace", type=Path, help="Root containing compiler/, editor/, debugger/, cmacros/, doc/")
+    parser.add_argument("--repos-root", type=Path,
+                        help="Parent of sibling cwhip/, cedit/, cdbg/, cmacros/ (default: website parent)")
+    for repo in ("cwhip", "cedit", "cdbg", "cmacros"):
+        parser.add_argument(f"--{repo}-root", type=Path, help=f"Override the {repo} checkout root")
     parser.add_argument("--docs-dir", type=Path, help="Compiler-only Markdown directory (partial site)")
     parser.add_argument("--output-dir", type=Path, help="Generated output (default: website/site)")
     args = parser.parse_args()
     try:
-        build(args.workspace, args.docs_dir, args.output_dir)
+        build(**vars(args))
     except (OSError, ValueError) as error:
         parser.exit(1, f"website: {error}\n")
 
