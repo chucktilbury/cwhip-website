@@ -39,6 +39,9 @@ class BuilderTests(unittest.TestCase):
         self.write("cmacros/doc/BUILD.md", "# Macro build\n")
         self.write("cmacros/doc/LANGUAGE.md", "# Macro language\n\n## Names\n")
         self.write("cmacros/doc/DIAGNOSTICS.md", "# Macro diagnostics\n")
+        self.write("cmacros/doc/USAGE.md", "# Command-line usage\n")
+        self.write("cmacros/doc/EXAMPLES.md", "# Examples\n")
+        self.write("cmacros/CHANGELOG.md", "# Changelog\n")
         self.write("cmacros/examples/README.md",
                    "# Original macros examples\n\n## Run\n\n"
                    "[Upstream](https://github.com/chucktilbury/macros/tree/commit/tests/passing)\n")
@@ -47,6 +50,10 @@ class BuilderTests(unittest.TestCase):
         self.write("cmacros/examples/original-passing/define.txt",
                    "# Not Markdown\n[x](missing.md)\n.define X {<tag>}\n@X\n")
         self.write("cmacros/examples/expected/define.out", "<tag>\n")
+        self.write("cvm/README.md", "# CVM\n\n[Interpreter](doc/INTERPRETER.md)\n")
+        self.write("cvm/doc/INTERPRETER.md", "# CVM interpreter\n")
+        self.write("cparsegen/README.md", "# cparsegen\n\n[Usage](doc/USAGE.md)\n")
+        self.write("cparsegen/doc/USAGE.md", "# cparsegen usage\n")
         self.write("cwhip/doc/FIRST-PROGRAM.md",
                    "# First program\n\n[Build](INSTALLATION.md#build)\n")
 
@@ -73,6 +80,10 @@ class BuilderTests(unittest.TestCase):
         self.assertIn("Editor build", (self.output / "editor/doc/BUILD.html").read_text())
         self.assertIn("Debugger build", (self.output / "debugger/doc/BUILD.html").read_text())
         self.assertIn("Macro build", (self.output / "cmacros/doc/BUILD.html").read_text())
+        self.assertIn("CVM interpreter", (self.output / "cvm/doc/INTERPRETER.html").read_text())
+        self.assertIn("cparsegen usage", (self.output / "cparsegen/doc/USAGE.html").read_text())
+        self.assertIn('href="docs.html#cvm"', (self.output / "index.html").read_text())
+        self.assertIn('href="docs.html#cparsegen"', (self.output / "index.html").read_text())
         self.assertFalse((self.output / "workflow").exists())
         self.assertNotIn('id="workflow"', toc)
         self.assertIn('href="getting-started/FIRST-PROGRAM.html"', toc)
@@ -118,13 +129,26 @@ class BuilderTests(unittest.TestCase):
 
     def test_cmacros_required_inputs_fail_before_output(self):
         for name in ("README.md", "doc/BUILD.md", "doc/LANGUAGE.md",
-                     "doc/DIAGNOSTICS.md", "examples/README.md",
+                     "doc/DIAGNOSTICS.md", "doc/USAGE.md", "doc/EXAMPLES.md",
+                     "CHANGELOG.md", "examples/README.md",
                      "examples/run_examples.py", "examples/original-passing/LICENSE"):
             with self.subTest(name=name):
                 source = self.repos / "cmacros" / name
                 text = source.read_text()
                 source.unlink()
                 with self.assertRaisesRegex(ValueError, "Required cmacros"):
+                    self.run_build()
+                self.assertFalse(self.output.exists())
+                source.write_text(text)
+
+    def test_cvm_and_cparsegen_required_inputs_fail_before_output(self):
+        for repo, name in (("cvm", "README.md"), ("cvm", "doc/INTERPRETER.md"),
+                           ("cparsegen", "README.md"), ("cparsegen", "doc/USAGE.md")):
+            with self.subTest(repo=repo, name=name):
+                source = self.repos / repo / name
+                text = source.read_text()
+                source.unlink()
+                with self.assertRaisesRegex(ValueError, f"Required {repo}"):
                     self.run_build()
                 self.assertFalse(self.output.exists())
                 source.write_text(text)
@@ -339,7 +363,8 @@ start {
             build.build(output_dir=self.output)
         check_site(self.output)
         self.assertEqual({p.name for p in self.repos.iterdir()},
-                         {"cwhip", "cedit", "cdbg", "cmacros", "cwhip-website"})
+                         {"cwhip", "cedit", "cdbg", "cmacros", "cvm", "cparsegen",
+                          "cwhip-website"})
         for page in self.output.rglob("*.html"):
             self.assertNotIn("cwhip-workspace", page.read_text())
 
@@ -354,7 +379,7 @@ start {
         for repo in ("cedit", "cdbg"):
             self.write(f"{repo}/doc/BUILD.md", "# Build\n\n![Icon](icon.svg)\n")
         roots = {}
-        for repo in ("cwhip", "cedit", "cdbg", "cmacros"):
+        for repo in build.COMPONENT_REPOS:
             target = self.root / f"separate {repo}" / "checkout"
             target.parent.mkdir()
             shutil.move(self.repos / repo, target)
@@ -363,6 +388,8 @@ start {
             build.build(output_dir=self.output, **roots)
         check_site(self.output)
         self.assertTrue((self.output / "editor/CEDIT.html").is_file())
+        self.assertTrue((self.output / "cvm/README.html").is_file())
+        self.assertTrue((self.output / "cparsegen/README.html").is_file())
         for component in ("editor", "debugger"):
             asset = f"assets/{component}/doc/icon.svg"
             self.assertEqual((self.output / asset).read_text(), f"<svg>{component}</svg>")
@@ -429,7 +456,7 @@ start {
 
     def test_explicit_roots_cli(self):
         command = [sys.executable, str(build.ROOT / "build.py")]
-        for repo in ("cwhip", "cedit", "cdbg", "cmacros"):
+        for repo in build.COMPONENT_REPOS:
             command += [f"--{repo}-root", str(self.repos / repo)]
         result = subprocess.run(
             command + ["--output-dir", str(self.output)],
