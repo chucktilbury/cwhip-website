@@ -1,14 +1,21 @@
-# Cwhip website
+# cwhip-website
 
-Source for [cwhip.org](https://cwhip.org). Requires Python 3.9+ and its standard
-library only; no package installation is needed. Documentation stays maintained
-in the independent component repositories, not copied into this repository.
+`cwhip-website` is the source for [cwhip.org](https://cwhip.org). It imports
+Markdown from sibling component repositories at build time; documentation is
+not copied into this tree. Source:
+[github.com/chucktilbury/cwhip-website](https://github.com/chucktilbury/cwhip-website).
 
-## Build from standalone repositories
+This directory contains the builder in `build.py`, site chrome in `content/`,
+and tests in `tests/`. Generated HTML lands in `site/`. Python 3.9+ and its
+standard library are enough; there is no package install step.
 
-Clone `chucktilbury/cwhip`, `chucktilbury/cedit`, `chucktilbury/cdbg`,
-`chucktilbury/cmacros`, `chucktilbury/cvm`, and `chucktilbury/cparsegen`
-alongside this checkout:
+With sibling checkouts of `cwhip`, `cedit`, `cdbg`, `cmacros`, `cvm`, and
+`cparsegen` next to this repository, build and check the site:
+
+```sh
+python3 /path/to/projects/cwhip-website/build.py
+python3 /path/to/projects/cwhip-website/check_site.py /path/to/projects/cwhip-website/site
+```
 
 ```text
 projects/
@@ -21,15 +28,11 @@ projects/
   cparsegen/
 ```
 
-From any directory, build and check the site:
+- [Documentation index (generated)](content/docs.md)
+- [About this site](content/about-site.md)
 
-```sh
-python3 /path/to/projects/cwhip-website/build.py
-python3 /path/to/projects/cwhip-website/check_site.py /path/to/projects/cwhip-website/site
-```
-
-By default, discovery uses the parent of `build.py`'s directory, not the caller's
-working directory. For sibling repositories elsewhere, use `--repos-root`:
+By default, discovery uses the parent of `build.py`, not the caller's working
+directory. For siblings elsewhere, use `--repos-root`:
 
 ```sh
 python3 build.py --repos-root /path/to/projects --output-dir /tmp/cwhip-site
@@ -125,7 +128,7 @@ than publishing broken links. Application links in compiler documents point to
 the authoritative guides on GitHub. Do not combine `--docs-dir` with repository
 root options.
 
-`build.py` declares `BUILDER_API = 3`. Callers should invoke the standalone CLI
+`build.py` declares `BUILDER_API = 4`. Callers should invoke the standalone CLI
 with the roots above and keep output outside source trees. The former combined
 layout input and implicit legacy `doc/website/` staging fallback are no longer
 supported.
