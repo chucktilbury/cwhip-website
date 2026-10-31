@@ -6,6 +6,6 @@ This page explains how the Cwhip website is organized and how to use it.
 - The **Documentation** section contains the ordered technical documents.
 - Documentation is grouped into Getting Started, Language & Compiler, Editor, Debugger, Macro Processor (cmacros), CVM, and Parser Generator (cparsegen).
 - Documents remain maintained in their component repositories; the website imports them when built.
-- The home page and navigation link directly to the Cwhip repository on GitHub.
+- The **GitHub** link links to the CWhip project on Github.
 
-More detail can be added here as the site’s conventions settle.
+
