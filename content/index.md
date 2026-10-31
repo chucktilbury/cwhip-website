@@ -42,14 +42,14 @@ existing programs or native packages.
 The compiler's grammar and language reference in the
 [Language & Compiler documentation](docs.html#compiler) describe the full syntax.
 
-## Applications
+## Applications and tools
 
-Explore the [Editor](docs.html#editor), [Debugger](docs.html#debugger), and
-[Macro Processor (cmacros)](docs.html#cmacros) documentation.
+Explore the [Editor](docs.html#editor), [Debugger](docs.html#debugger),
+[Macro Processor (cmacros)](docs.html#cmacros), [CVM](docs.html#cvm), and
+[Parser Generator (cparsegen)](docs.html#cparsegen) documentation.
 `cmacros` is a standalone command-line macro processor written in Cwhip,
-not a compiler pipeline stage or GUI application. Its documentation includes
-build instructions, the language contract, diagnostics, and original examples
-with source files and an output-checking runner. Binary releases and icons
-are deferred.
+not a compiler pipeline stage or GUI application. **CVM** provides the
+bytecode library plus `cvm-as` / `cvm-run`. **cparsegen** generates parsers
+from grammars and hosts SmallC demos that can target CVM assembly.
 
 [Documentation](docs.html) · [About this site](about-site.html) · [GitHub](https://github.com/chucktilbury/cwhip)

@@ -16,14 +16,25 @@ from check_site import check_site
 
 ROOT = Path(__file__).resolve().parent
 CONTENT = ROOT / "content"
-BUILDER_API = 3
+BUILDER_API = 4
 SECTIONS = (
     ("getting-started", "Getting Started"),
     ("compiler", "Language & Compiler"),
     ("editor", "Editor"),
     ("debugger", "Debugger"),
     ("cmacros", "Macro Processor (cmacros)"),
+    ("cvm", "CVM"),
+    ("cparsegen", "Parser Generator (cparsegen)"),
 )
+COMPONENT_REPOS = ("cwhip", "cedit", "cdbg", "cmacros", "cvm", "cparsegen")
+ASSET_PREFIX = {
+    "cwhip": "compiler",
+    "cedit": "editor",
+    "cdbg": "debugger",
+    "cmacros": "cmacros",
+    "cvm": "cvm",
+    "cparsegen": "cparsegen",
+}
 LINK = re.compile(r'(!?)\[([^\]]*)\]\(([^)\n]+)\)')
 INLINE = re.compile(r'(`[^`]+`|!?\[[^\]]*\]\([^)\n]+\))')
 FORMATTED_INLINE = re.compile(INLINE.pattern + r'|\*\*[^*]+\*\*|\*[^*]+\*')
@@ -194,16 +205,17 @@ def relative(target, page):
 
 
 def build(docs_dir=None, output_dir=None, *, repos_root=None, cwhip_root=None,
-          cedit_root=None, cdbg_root=None, cmacros_root=None):
+          cedit_root=None, cdbg_root=None, cmacros_root=None, cvm_root=None,
+          cparsegen_root=None):
     docs_dir = Path(docs_dir).resolve() if docs_dir else None
     output = Path(output_dir).resolve() if output_dir else ROOT / "site"
-    overrides = (cwhip_root, cedit_root, cdbg_root, cmacros_root)
+    overrides = (cwhip_root, cedit_root, cdbg_root, cmacros_root, cvm_root, cparsegen_root)
     if docs_dir and (repos_root or any(overrides)):
         raise ValueError("Use --docs-dir alone for a partial site, not with repository roots")
     parent = Path(repos_root).resolve() if repos_root else ROOT.parent
     repositories = {
         repo: (Path(root) if root else parent / repo).resolve()
-        for repo, root in zip(("cwhip", "cedit", "cdbg", "cmacros"), overrides)
+        for repo, root in zip(COMPONENT_REPOS, overrides)
     } if not docs_dir else {"cwhip": docs_dir.parent}
     sources = {}
     sections = {key: [] for key, _ in SECTIONS}
@@ -256,12 +268,25 @@ def build(docs_dir=None, output_dir=None, *, repos_root=None, cwhip_root=None,
             aliases[(compiler_doc / guide).resolve()] = (root / guide).resolve()
         macro_root = repositories["cmacros"]
         macro_pages = ["README.md", "doc/BUILD.md", "doc/LANGUAGE.md",
-                       "doc/DIAGNOSTICS.md", "examples/README.md"]
+                       "doc/DIAGNOSTICS.md", "doc/USAGE.md", "doc/EXAMPLES.md",
+                       "CHANGELOG.md", "examples/README.md"]
         for name in macro_pages:
             source = macro_root / name
             if not source.is_file():
                 raise ValueError(f"Required cmacros documentation missing: {source}")
             add(source, Path("cmacros") / Path(name).with_suffix(".html"), "cmacros")
+        for component, repo in (("cvm", "cvm"), ("cparsegen", "cparsegen")):
+            root = repositories[repo]
+            readme = root / "README.md"
+            if not readme.is_file():
+                raise ValueError(f"Required {repo} README missing: {readme}")
+            doc_root = root / "doc"
+            if not doc_root.is_dir() or not list(doc_root.rglob("*.md")):
+                raise ValueError(f"Required {repo} documentation missing under: {doc_root}")
+            pages = [readme]
+            pages += sorted(doc_root.rglob("*.md"))
+            for page in pages:
+                add(page, Path(component) / page.relative_to(root).with_suffix(".html"), component)
         add(getting_started, "getting-started/index.html", "getting-started")
         if first.is_file():
             add(first, "getting-started/FIRST-PROGRAM.html", "getting-started")
@@ -324,8 +349,7 @@ def build(docs_dir=None, output_dir=None, *, repos_root=None, cwhip_root=None,
                 else:
                     repo = next(name for name, root in repositories.items()
                                 if root in local.parents)
-                    prefix = {"cwhip": "compiler", "cedit": "editor",
-                              "cdbg": "debugger"}.get(repo, repo)
+                    prefix = ASSET_PREFIX.get(repo, repo)
                     asset_path = Path(prefix) / local.relative_to(repositories[repo])
                 dest = Path("assets") / asset_path
                 assets[local] = dest
@@ -454,8 +478,8 @@ def build(docs_dir=None, output_dir=None, *, repos_root=None, cwhip_root=None,
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repos-root", type=Path,
-                        help="Parent of sibling cwhip/, cedit/, cdbg/, cmacros/ (default: website parent)")
-    for repo in ("cwhip", "cedit", "cdbg", "cmacros"):
+                        help="Parent of sibling component checkouts (default: website parent)")
+    for repo in COMPONENT_REPOS:
         parser.add_argument(f"--{repo}-root", type=Path, help=f"Override the {repo} checkout root")
     parser.add_argument("--docs-dir", type=Path, help="Compiler-only Markdown directory (partial site)")
     parser.add_argument("--output-dir", type=Path, help="Generated output (default: website/site)")

@@ -6,8 +6,9 @@ in the independent component repositories, not copied into this repository.
 
 ## Build from standalone repositories
 
-Clone `chucktilbury/cwhip`, `chucktilbury/cedit`, `chucktilbury/cdbg`, and
-`chucktilbury/cmacros` alongside this checkout:
+Clone `chucktilbury/cwhip`, `chucktilbury/cedit`, `chucktilbury/cdbg`,
+`chucktilbury/cmacros`, `chucktilbury/cvm`, and `chucktilbury/cparsegen`
+alongside this checkout:
 
 ```text
 projects/
@@ -16,6 +17,8 @@ projects/
   cedit/
   cdbg/
   cmacros/
+  cvm/
+  cparsegen/
 ```
 
 From any directory, build and check the site:
@@ -42,6 +45,8 @@ python3 build.py \
   --cedit-root /src/tools/editor \
   --cdbg-root /src/tools/debugger \
   --cmacros-root /src/macros \
+  --cvm-root /src/vm \
+  --cparsegen-root /src/parsergen \
   --output-dir /tmp/cwhip-site
 ```
 
@@ -60,7 +65,9 @@ No combined repository or submodule layout is needed.
 | Language & Compiler | other cwhip `doc/**/*.md` | `compiler/` |
 | Editor | cedit `CEDIT.md`, optional `README.md`, `doc/**/*.md` | `editor/` |
 | Debugger | cdbg `CDBG.md`, optional `README.md`, `doc/**/*.md` | `debugger/` |
-| Macro Processor (cmacros) | cmacros `README.md`, `doc/{BUILD,LANGUAGE,DIAGNOSTICS}.md`, `examples/README.md` | `cmacros/` |
+| Macro Processor (cmacros) | cmacros `README.md`, `doc/{BUILD,LANGUAGE,DIAGNOSTICS,USAGE,EXAMPLES}.md`, `CHANGELOG.md`, `examples/README.md` | `cmacros/` |
+| CVM | cvm `README.md`, `doc/**/*.md` | `cvm/` |
+| Parser Generator (cparsegen) | cparsegen `README.md`, `doc/**/*.md` | `cparsegen/` |
 
 The compiler section keeps the original core-document order, followed by other
 documents. Obsolete cwhip `doc/CEDIT.md` and `doc/CDBG.md` are not published;
@@ -69,12 +76,12 @@ links to them resolve to the authoritative component guides. The old embedded
 
 Recognized relative links between imported documents become relative HTML links,
 including fragments. Referenced non-Markdown assets are copied into `assets/`
-under stable component prefixes (`compiler`, `editor`, `debugger`, `cmacros`),
-independent of the checkout directories' names. Links to other existing repository
-Markdown outside the documentation inputs (for example cwhip `stdlib/README.md`)
-become external GitHub links using the compiler's `master` branch and the other
-repositories' `main` branches. External pages are not recursively imported or
-checked over the network.
+under stable component prefixes (`compiler`, `editor`, `debugger`, `cmacros`,
+`cvm`, `cparsegen`), independent of the checkout directories' names. Links to
+other existing repository Markdown outside the documentation inputs (for example
+cwhip `stdlib/README.md`) become external GitHub links using the compiler's
+`master` branch and the other repositories' `main` branches. External pages are
+not recursively imported or checked over the network.
 
 Inline/fenced code examples are not treated as links. Link labels may contain
 inline code or emphasis; their destinations are rewritten like plain-text links.
@@ -90,14 +97,15 @@ documentation claims, external URLs, or links that failed to render as anchors.
 Compatibility redirects retain old flat compiler-document URLs and fragments,
 including `CEDIT.html`/`CDBG.html` redirects to component sections in full builds.
 
-All five listed cmacros guides are required for a full build. Its examples guide
+All listed cmacros guides are required for a full build. Its examples guide
 gains a generated file listing: the runner, upstream license, original `.txt`
 inputs, and expected `.out` files are copied byte-for-byte to
 `assets/cmacros/examples/`, never parsed as Markdown or executed. The runner and
 license are required inputs. Canonical provenance links stay external;
 directories without a README link to their repository tree. Each cmacros guide
 links back to its canonical GitHub source. The CLI is standalone, not integrated
-into the compiler pipeline.
+into the compiler pipeline. Full builds also require `cvm/README.md` plus at
+least one `cvm/doc/*.md`, and the same for `cparsegen`.
 
 Generated filenames are recorded in `site/.generated-files.json`; subsequent
 builds remove only previously recorded stale files, including workflow pages from
